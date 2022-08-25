@@ -1,0 +1,15 @@
+*.vtu
+*.pvtu
+*.vti
+*.pvti
+*.vtr
+*.pvtr
+*.vtp
+*.pvtp
+*.vts
+*.pvts
+
+build*/
+
+*.log
+*.tmp

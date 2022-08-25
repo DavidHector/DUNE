@@ -1,0 +1,10 @@
+#dune module information file#
+##############################
+
+#Name of the module
+Module: dune-multidomaingrid
+Version: 2.8-git
+Maintainer: santiago.ospina@iwr.uni-heidelberg.de
+#depending on
+Depends: dune-grid (>= 2.8)
+Whitespace-Hook: Yes

@@ -1,0 +1,62 @@
+#  Minimal CUTEst installation makefile
+
+#  package
+
+PACKAGE = DUNE-NONLINOPT-NEW
+package = dune-nonlinopt-new
+
+# absolute path to dune-nonlinopt header files
+NONLINOPT_PATH = PUT_PATH_HERE
+
+#  compilation agenda
+
+$(PACKAGE) = $(OBJ)/$(package)_main.o
+
+SUCC = precision version) compiled successfully
+
+#  main compilations and runs
+
+all: $(package)
+
+#  basic packages
+
+$(package): $(package)_$(PRECIS)
+	@printf ' %-21s\n' "CUTEst: $(package) ($(PRECIS) $(SUCC)"
+$(package)_single: $($(PACKAGE))
+$(package)_double: $($(PACKAGE))
+
+tools:
+	( cd ../tools ; $(MAKE) -f $(CUTEST)/makefiles/$(VERSION) \
+                     cutest PRECIS=$(PRECIS) PWD=$(PWD)/../tools )
+utools:
+	( cd ../tools ; $(MAKE) -f $(CUTEST)/makefiles/$(VERSION) \
+                     cutest_unconstrained PRECIS=$(PRECIS) PWD=$(PWD)/../tools )
+ctools:
+	( cd ../tools ; $(MAKE) -f $(CUTEST)/makefiles/$(VERSION) \
+                     cutest_constrained PRECIS=$(PRECIS) PWD=$(PWD)/../tools )
+
+#  CUTEst interface main programs
+
+$(OBJ)/$(package)_main.o: ../$(package)/$(package)_main.cpp
+	@printf ' %-9s %-15s\t\t' "Compiling" "$(package)_main"
+	$(SED) -f $(SEDS) ../$(package)/$(package)_main.cpp > \
+          $(OBJ)/$(package)_main.cpp
+	cd $(OBJ); g++ -std=c++17 -I$(NONLINOPT_PATH) \
+              -o $(package)_main.o -c -I$(CUTEST)/include \
+              -march=native -O3 $(package)_main.cpp
+	$(RM) $(OBJ)/$(package)_main.cpp
+	@printf '[ OK ]\n'
+
+#  book keeping
+
+clean:
+	@printf ' %-9s\t\t' "Cleaning"
+	$(RM) $(OBJ)/*
+	@printf '[ OK ]\n'
+
+cleanall:
+	@printf ' %-14s\t\t' \
+          "Removing all $(PRECIS) precision object and module files"
+	$(RM) $(OBJ)/* $(MOD)/*
+	@printf '[ OK ]\n'
+

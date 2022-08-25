@@ -1,0 +1,16 @@
+---
+debian:10--gcc:
+  image: registry.dune-project.org/docker/ci/dune:git-debian-10-gcc-8-17
+  script: duneci-standard-test
+  tags: [duneci]
+  artifacts:
+    reports:
+      junit: junit/*.xml
+
+debian:10--clang:
+  image: registry.dune-project.org/docker/ci/dune:git-debian-10-clang-7-libcpp-17
+  script: duneci-standard-test
+  tags: [duneci]
+  artifacts:
+    reports:
+      junit: junit/*.xml

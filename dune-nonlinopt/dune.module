@@ -1,0 +1,10 @@
+################################
+# Dune module information file #
+################################
+
+#Name of the module
+Module: dune-nonlinopt
+Version: 2.7
+Maintainer: ole.klein@iwr.uni-heidelberg.de
+#depending on
+Depends: dune-common

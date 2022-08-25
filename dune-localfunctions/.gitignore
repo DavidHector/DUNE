@@ -1,0 +1,8 @@
+*~
+/build*/
+# ignore files generated during python setup.py sdist
+MANIFEST
+_skbuild/
+dist
+# ignore macOS filesystem
+.DS_Store

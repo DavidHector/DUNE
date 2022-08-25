@@ -1,0 +1,10 @@
+################################
+# Dune module information file #
+################################
+
+#Name of the module
+Module: dune-hydro
+Version: 0.1
+Maintainer: peter.bastian@iwr.uni-heidelberg.de
+#depending on
+Depends: dune-common dune-geometry dune-uggrid dune-grid dune-alugrid dune-istl dune-localfunctions dune-typetree dune-functions dune-pdelab dune-vtk dune-nonlinopt

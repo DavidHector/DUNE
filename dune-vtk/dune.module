@@ -1,0 +1,19 @@
+################################
+# Dune module information file #
+################################
+
+#Name of the module
+Module: dune-vtk
+Version: 2.8
+
+#meta data
+Author: Simon Praetorius
+Maintainer: simon.praetorius@tu-dresden.de
+Description: File reader and writer for the VTK Format
+URL: https://gitlab.dune-project.org/extensions/dune-vtk
+
+#depending on
+Depends: dune-grid (>= 2.8) dune-localfunctions (>= 2.8)
+Suggests: dune-functions dune-spgrid dune-polygongrid dune-alugrid dune-foamgrid dune-uggrid
+Python-Requires:
+Whitespace-Hook: Yes

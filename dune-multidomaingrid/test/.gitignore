@@ -1,0 +1,16 @@
+*.vtu
+dgfparser.log
+test-wrapper
+testwrapper
+testindexset
+testpartitioning
+testsubdomainset
+testlargedomainnumbers
+testadaptation
+testhierarchy
+iterateallinterfaces
+testparallel
+profilerepartitioning
+multidomain-leveliterator-bug
+testintersectionconversion
+testintersectiongeometrytypes
