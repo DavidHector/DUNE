@@ -1,0 +1,11 @@
+prefix=/home/david/DUNE/external/arpack-ng
+exec_prefix=${prefix}
+libdir=/home/david/DUNE/external/arpack-ng/lib
+
+Name: arpack
+Description: Collection of Fortran77 subroutines designed to solve large scale eigenvalue problems
+Version: 3.9.0
+URL: https://github.com/opencollab/arpack-ng/
+Requires.private: arpack
+Libs: -L${libdir} -lparpack
+Libs.private: -llapack -lblas -lmpi_usempif08 -lmpi_usempi_ignore_tkr -lmpi_mpifh -lmpi
