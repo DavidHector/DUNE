@@ -1,0 +1,15 @@
+*.atfi
+*.aux
+*.bbl
+*.blg
+*.fdb_latexmk
+*.fls
+*.log
+*.out
+*.synctex.gz
+*.tdo
+*.toc
+
+dune-functions-bases.pdf
+dune-functions-functions.pdf
+
