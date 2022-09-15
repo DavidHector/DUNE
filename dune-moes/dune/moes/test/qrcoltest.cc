@@ -91,7 +91,7 @@ int main(int argc, char const *argv[])
     size_t matrixSizeDouble = N*rhsWidth;
     Vec4d* Q = new Vec4d[matrixSize]; // The matrix
     double* Qdouble = new double[matrixSizeDouble];
-    std::cout << "Matrix Size: " << matrixSize << std::endl;
+    std::cout << "Matrix Size: " << matrixSizeDouble << std::endl;
 
     /* 
     std::cout << "QR-algorithm (Vectorized, variable block Size): " << std::endl;
