@@ -5,4 +5,5 @@ target_link_libraries(qrtest PRIVATE dunecommon)
 add_executable(naivetest naivetest.cc)
 add_executable(qrvectest qrvectest.cc)
 add_executable(qrcoltest qrcoltest.cc)
+add_executable(matmultest matmultest.cc)
 

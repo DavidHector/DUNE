@@ -33,6 +33,25 @@ void getGFLOPSqr(Vec4d* Q, QR qr, F f, size_t N, size_t rhsWidth, size_t repetit
     std::cout << "GFLOPS: " << gFlops << std::endl;
 }
 
+template<typename QR, typename F>
+void getGFLOPSqr(double* Q, QR qr, F f, size_t N, size_t rhsWidth, size_t repetitions, size_t blockSize = 2, size_t uBlockSize = 1){
+    double flops = f(N, rhsWidth);
+    auto start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < repetitions; i++)
+    {
+        qr(Q, N, rhsWidth/blockSize/4, blockSize, uBlockSize);
+    }
+    std::cout << "Algorithm finished! Calculating metrics..." << std::endl;
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+    auto averageDuration = (double) duration.count()/repetitions;
+    auto gFlops = (flops/averageDuration) / 1.0; // 1e6 when duration in ms, 1e3 when using µs
+    std::cout << "Average Duration: " << averageDuration/1e6 << "ms" << std::endl;
+    std::cout << "Memory usage (full Matrix): " << N*rhsWidth*8.0/1e6 << "MB" << std::endl; 
+    std::cout << "Memory Bandwidth: " << memBandwidthGB(N, rhsWidth, averageDuration) << "GB/s (max: 25.6GB/s)" << std::endl;
+    std::cout << "GFLOPS: " << gFlops << std::endl;
+}
+
 int main(int argc, char const *argv[])
 {
     size_t N = 1000;
@@ -69,7 +88,10 @@ int main(int argc, char const *argv[])
         }
     }
     size_t matrixSize = N*rhsWidth/4;
-    Vec4d* Q = new Vec4d[matrixSize]; // The matrix, how to traverse?
+    size_t matrixSizeDouble = N*rhsWidth;
+    Vec4d* Q = new Vec4d[matrixSize]; // The matrix
+    double* Qdouble = new double[matrixSizeDouble];
+    std::cout << "Matrix Size: " << matrixSize << std::endl;
 
     /* 
     std::cout << "QR-algorithm (Vectorized, variable block Size): " << std::endl;
@@ -82,6 +104,18 @@ int main(int argc, char const *argv[])
     std::cout << "QR-algorithm (Vectorized, fixed block Size): " << std::endl;
     fillMatrixRandom(Q, matrixSize);
     getGFLOPSqr(Q, qrunblocked, flopsQR, N, rhsWidth, repetitions);
+    checkOrthoNormalityFixed(Q, N, rhsWidth/8, tolerance);
+    std::cout << std::endl;
+
+    std::cout << "QR-algorithm (Vectorized, fixed block Size, Optimized): " << std::endl;
+    fillMatrixRandom(Q, matrixSize);
+    getGFLOPSqr(Q, qrFixedBlockOptimizedVec4d, flopsQR, N, rhsWidth, repetitions);
+    checkOrthoNormalityFixed(Q, N, rhsWidth/8, tolerance);
+    std::cout << std::endl;
+
+    std::cout << "QR-algorithm (Vectorized, fixed block Size, Optimized, Doubles): " << std::endl;
+    fillMatrixRandom(Qdouble, matrixSizeDouble);
+    getGFLOPSqr(Qdouble, qrFixedBlockOptimizedDouble, flopsQR, N, rhsWidth, repetitions);
     checkOrthoNormalityFixed(Q, N, rhsWidth/8, tolerance);
     std::cout << std::endl;
 
