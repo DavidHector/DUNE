@@ -1,7 +1,7 @@
 add_executable(simdtest test.cc)
 target_link_libraries(simdtest PRIVATE dunecommon)
 #add_executable(qrtest qrtest.cc)
-target_link_libraries(qrtest PRIVATE dunecommon)
+# target_link_libraries(qrtest PRIVATE dunecommon)
 add_executable(naivetest naivetest.cc)
 add_executable(qrvectest qrvectest.cc)
 add_executable(qrcoltest qrcoltest.cc)
