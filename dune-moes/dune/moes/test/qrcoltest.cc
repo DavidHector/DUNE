@@ -171,11 +171,13 @@ int main(int argc, char const *argv[])
     checkOrthoNormalityFixed(Qdouble, N, rhsWidth/8, tolerance);
     std::cout << std::endl;
     */
-   std::cout << "Automatic Test" << std::endl;
-   autotest(tolerance);
+    /*
+    std::cout << "Automatic Test" << std::endl;
+    autotest(tolerance);
+    */ 
 
     std::cout << "Multithreaded Test: " << std::endl;
-    multithreadedTest(4, N, rhsWidth, repetitions, tolerance);
+    multithreadedTest(128, N, rhsWidth, repetitions, tolerance);
 
 
     return 0;
