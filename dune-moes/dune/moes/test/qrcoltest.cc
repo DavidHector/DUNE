@@ -14,6 +14,25 @@ double flopsQR(const size_t& N, const size_t& W){
     return W*(4.0*N) + 0.5 * W*(W-1) * (2.0*N + 1.0 + 2.0*N);
 }
 
+double average(std::vector<double> Arr){
+    double sum = 0.0;
+    for (double i : Arr)
+    {
+        sum += i;
+    }
+    return sum/Arr.size();
+}
+
+double standard_deviation(std::vector<double> Arr, double average){
+    double stddev = 0.0;
+    for (double i : Arr)
+    {
+        stddev += (i - average) * (i - average);
+    }
+    stddev /= Arr.size();
+    return std::sqrt(stddev);
+}
+
 double memBandwidthGB(const size_t&N, const size_t&W, const double averageTimeNs){
     double memoryReq = N*W*8.0;
     double bW = memoryReq/averageTimeNs; // Bytes/nanosecond = Gigabytes/second
@@ -92,7 +111,7 @@ void autotest(const double tolerance){
 
 void multithreadedTest(size_t threadNumber, size_t N, size_t rhsWidth, size_t repetitions, const double tolerance){
     std::vector<std::thread> threads;
-    double* gFlops = new double[threadNumber];
+    std::vector<double> gFlops(threadNumber, 0.0);
     for (size_t i = 0; i < threadNumber; i++)
     {
         threads.push_back(std::thread(singleThreadTest, N, rhsWidth, repetitions, tolerance, i, std::ref(gFlops[i])));
@@ -102,6 +121,9 @@ void multithreadedTest(size_t threadNumber, size_t N, size_t rhsWidth, size_t re
     {
         threads[i].join();
     }
+    double avg = average(gFlops);
+    double stddev = standard_deviation(gFlops, avg);
+    std::cout << "Average Performance: " << avg << " +- " <<  stddev << " GFLOPs" << std::endl;
 }
 
 int main(int argc, char const *argv[])
