@@ -30,10 +30,12 @@ void printQ(Vec4d* Q, int matrixSize){
 int main(int argc, char const *argv[])
 {
     // Make a Block Matrix
-    int N = 1e5; // 
+    int N = 1e6; // 
+    double Nd = 1e6;
     int rhsWidth = 256;
+    int rhsWidthD = 256;
     int matrixSize = N*rhsWidth/4;
-    int flops = N*N*rhsWidth*2; // N rows, N cols, 2 operations, rhsWidth vectors
+    double flops = Nd*Nd*rhsWidthD*2.0; // N rows, N cols, 2 operations, rhsWidth vectors
     static const int BS = 4;
     typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
     typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
@@ -58,6 +60,8 @@ int main(int argc, char const *argv[])
     auto averageDuration = (double) duration.count();
     auto gFlops = flops/averageDuration;
     std::cout << "Matrix Multiplication GFLOPS: " << gFlops << std::endl;
+    std::cout << "Matrix Multiplication FLOP: " << flops << std::endl;
+    std::cout << "Matrix Multiplication Duration (ns): " << averageDuration << std::endl;
     
     return 0;
 }

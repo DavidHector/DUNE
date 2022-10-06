@@ -3,6 +3,7 @@
 
 #include <dune/moes/vectorclass/vectorclass.h>
 #include <dune/istl/bcrsmatrix.hh>
+#include <iostream>
 
 /*
     input: M: Matrix to calculate EVs for, Q: 
@@ -21,15 +22,17 @@ void MultQ(MT& M, Vec4d* Qin, Vec4d* Qout, size_t qCols, size_t N){
         }
     }
     
-
+    int rows = 0;
     auto endRow = M.end();
     for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
     {
         auto endCol = (*rowIterator).end();
         auto mBrI = rowIterator.index(); // Matrix Block Row Index
-        
+        rows++;
+        int cols = 0;
         for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
         {
+            cols++;
             // *colIterator is probably the FieldMatrix (which uses the dense matrix multAssign)
             auto mBcI = rowIterator.index();
             auto fMatRows = (*colIterator).rows; // Should be blockSize of the underlying field matrix
