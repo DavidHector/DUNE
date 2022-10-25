@@ -318,7 +318,7 @@ void checkOrthoNormalityFixed(const double *Q, const size_t rows, const size_t c
 
                 // between blocks
                 vFirst.load(&Q[vIndex]);      // first v Block
-                vSecond.load(&Q[vIndex + 1]); // second v Block
+                vSecond.load(&Q[vIndex + 4]); // second v Block
                 dotProducts[0] += u0 * vFirst;
                 dotProducts[1] += u1 * vFirst;
                 dotProducts[2] += u2 * vFirst;
@@ -342,7 +342,6 @@ void checkOrthoNormalityFixed(const double *Q, const size_t rows, const size_t c
             }
 
             // check Orthonormality inside block
-            // Checks are all wrong, why only to 8 (not 16)?
             for (size_t intradots = 0; intradots < 8; intradots++)
             {
                 column = col * 8 + intradots;
@@ -354,7 +353,7 @@ void checkOrthoNormalityFixed(const double *Q, const size_t rows, const size_t c
                         {
                             std::cout << "Norm violation!" << std::endl;
                             std::cout << "Norm is " << iBDP[intradots][iVI] << " should be: 1" << std::endl;
-                            std::cout << "Column (integer from 1..N): " << column << std::endl;
+                            std::cout << "Column (integer from 1..N/8): " << column << std::endl;
                             return;
                         }
                     }
@@ -371,7 +370,7 @@ void checkOrthoNormalityFixed(const double *Q, const size_t rows, const size_t c
                 }
             }
 
-            // Orthogonality between blocks
+            // Orthogonality between inside blocks
             for (size_t second = 8; second < 16; second++)
             {
                 for (size_t iVI = 0; iVI < 4; iVI++)

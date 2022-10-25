@@ -1,7 +1,9 @@
 #include <iostream>
+#include <vector>
 #include <dune/istl/bcrsmatrix.hh>
 #include <dune/istl/test/laplacian.hh>
 #include <dune/moes/MatrixMult.hh>
+#include <dune/moes/moes.hh>
 
 int main(int argc, char const *argv[])
 {
@@ -44,12 +46,24 @@ int main(int argc, char const *argv[])
         }
     }
     size_t Qsize = N * rhsWidth;
+    size_t qCols = rhsWidth / 8;
+    size_t EVNumber = 8;
     double *Q = new double[Qsize];
-    static const int BS = 4;
+    std::vector<double> EVs(EVNumber, 0.0);
+    static const int BS = 1;
     typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
     typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
     BCRSMat laplacian;
-    setupLaplacian(laplacian, N / BS);
+    setupLaplacian(laplacian, std::sqrt(N)); //AAAAAArgghh, this sets the matrix to size N*N x N*N (with N*N*5 entries, not really sure what the BlockSize does)
+    largestEVsIterative(laplacian, Q, qCols, N, 5, 1);
+    std::cout << "After calling largestEVs: Q[0] = " << Q[0] << std::endl;
+    getEigenvalues(laplacian, Q, qCols, N, EVs);
+    std::cout << "After calling getEigenvalues: Q[0] = " << Q[0] << std::endl;
+    std::cout << "The largest " << EVNumber << " Eigenvalues are: " << std::endl;
+    for (size_t i = 0; i < EVNumber; i++)
+    {
+        std::cout << EVs[i] << std::endl;
+    }
 
     return 0;
 }

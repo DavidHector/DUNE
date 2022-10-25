@@ -70,23 +70,20 @@ void MultQ(MT &M, Vec4d *Qin, Vec4d *Qout, size_t qCols, size_t N)
 */
 
 template <typename MT>
-void MultQ(MT &M, double *Qin, double *Qout, size_t qCols, size_t N)
+void MultQ(MT &M, const double *Qin, double *Qout, size_t qCols, size_t N)
 {
-    Vec4d v;
+    Vec4d v, u;
+    Vec4d zeroVec = 0.0;
+    Vec4d productFirst, productSecond;
     Vec4d inFirst, inSecond;
     Vec4d outFirst, outSecond;
-    double entryM;
+    Vec4d entryM;
     // How to iterate over M?
     // So I think for a BCRS Matrix, this only iterates over the blocks (which are fieldmatrices I guess)
     // Set Qout to zero
-    for (size_t qCol = 0; qCol < qCols; qCol++)
+    for (size_t i = 0; i < qCols * N * 8; i += 4)
     {
-        for (size_t qRow = 0; qRow < 2 * N; qRow++)
-        {
-            v.load(&Qout[qCol * 2 * N * 4 + qRow * 4]);
-            v = 0.0;
-            v.store(&Qout[qCol * 2 * N * 4 + qRow * 4]);
-        }
+        zeroVec.store(&Qout[i]);
     }
 
     int rows = 0;
@@ -104,28 +101,31 @@ void MultQ(MT &M, double *Qin, double *Qout, size_t qCols, size_t N)
             auto mBcI = rowIterator.index();     // Matrix Block Column Index
             auto fMatRows = (*colIterator).rows; // Should be blockSize of the underlying field matrix
             auto fMatCols = (*colIterator).cols;
+            // std::cout << "fMatRows = " << fMatRows << ", fMatCols = " << fMatCols << std::endl;
             for (auto i = 0; i < fMatRows; i++)
             {
                 auto mIr = mBrI * fMatRows + i; // Matrix Row Index
                 for (size_t qCol = 0; qCol < qCols; qCol++)
                 {
+                    productFirst = 0.0;
+                    productSecond = 0.0;
+                    auto qoutIndex = qCol * N * 8 + mIr * 8; //col row  this should go to 64, but only goes to 24, why?
+                    //std::cout << "qoutIndex = " << qoutIndex << ", mIr = " << mIr << ", mBrI = " << mBrI << std::endl;
                     for (auto j = 0; j < fMatCols; j++)
                     {
-                        auto mIc = mBcI * fMatCols + j;          // Matrix Column Index
-                        auto qinIndex = qCol * N * 8 + mIc * 8;  // columns in the matrix are rows in the vector
-                        auto qoutIndex = qCol * N * 8 + mIr * 8; //col row
+                        auto mIc = mBcI * fMatCols + j; // Matrix Column Index, this is somehow very wrong
+                        // std::cout << "qCol = " << qCol << ", mBcI = " << mBcI << ", fMatCols = " << fMatCols << ", mIc = " << mIc << ", mIr = " << mIr << std::endl;
+                        auto qinIndex = qCol * N * 8 + mIc * 8; // columns in the matrix are rows in the vector
                         inFirst.load(&Qin[qinIndex]);
                         inSecond.load(&Qin[qinIndex + 4]);
-                        outFirst.load(&Qout[qoutIndex]);
-                        outSecond.load(&Qout[qoutIndex + 4]);
-                        entryM = (*colIterator)[i][j];
+                        entryM = (*colIterator)[i][j]; // This seems fine
+                        //std::cout << entryM << std::endl;
 
-                        outFirst += entryM * inFirst;
-                        outSecond += entryM * inSecond;
-
-                        outFirst.store(&Qout[qoutIndex]);
-                        outSecond.store(&Qout[qoutIndex + 4]);
+                        productFirst += entryM * inFirst;
+                        productSecond += entryM * inSecond;
                     }
+                    productFirst.store(&Qout[qoutIndex]);
+                    productSecond.store(&Qout[qoutIndex + 4]);
                 }
             }
         }

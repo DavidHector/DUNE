@@ -91,6 +91,7 @@ void singleThreadTest(size_t N, size_t rhsWidth, size_t repetitions, const doubl
     fillMatrixRandom(Qdouble, matrixSizeDouble);
     getGFLOPSqr(Qdouble, qrFixedBlockOptimizedDouble, flopsQR, N, rhsWidth, repetitions, gFlops, threadNumber);
     checkOrthoNormalityFixed(Qdouble, N, rhsWidth / 8, tolerance);
+    // printMatrix(Qdouble, N, rhsWidth);
 }
 
 void singleThreadTestNaive(size_t N, size_t rhsWidth, size_t repetitions, const double tolerance, size_t threadNumber, double &gFlops)
@@ -100,6 +101,7 @@ void singleThreadTestNaive(size_t N, size_t rhsWidth, size_t repetitions, const 
     fillMatrixRandom(Qdouble, matrixSizeDouble);
     getGFLOPSqr(Qdouble, qrNaive, flopsQR, N, rhsWidth, repetitions, gFlops, threadNumber);
     checkOrthoNormalityFixed(Qdouble, N, rhsWidth / 8, tolerance);
+    //printMatrix(Qdouble, N, rhsWidth);
 }
 
 void autotest(const double tolerance)
@@ -254,8 +256,9 @@ int main(int argc, char const *argv[])
               << std::endl;
 
     std::cout << "Optimized test" << std::endl;
-    // singleThreadTest(N, rhsWidth, repetitions, tolerance, 0, gFlops);
+    //singleThreadTest(N, rhsWidth, repetitions, tolerance, 0, gFlops);
     autotest(tolerance);
+    // printMatrix(Q, N, rhsWidth);
 
     return 0;
 }

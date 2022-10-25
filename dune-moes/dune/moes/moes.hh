@@ -4,6 +4,7 @@
 #include <dune/moes/MatrixMult.hh>
 #include <dune/moes/qrcol.hh>
 #include <dune/moes/vectorclass/vectorclass.h>
+#include <vector>
 
 /*
     Checks, whether the sum of absolute differences between vector elements between iterations is lower than the given tolerance.
@@ -64,14 +65,15 @@ void pointerSwap(T **a, T **b)
 template <typename MT>
 void largestEVs(const MT &M, double *Q, const size_t qCols, const size_t N, const double tolerance, const size_t qrFrequency)
 {
-    bool continue = true;
+    bool stop = false;
     size_t iterationCounter = 0;
     size_t matrixSize = N * qCols * 8; // watch out, overflow error might occur, 8 because of col width
-    double *Qin = new double[matrixSize];
-    double *Qout = Q;
-    double *tmp;
-    fillMatrixRandom(Qin, matrixSize);
-    while (continue)
+    double *Qtmp = new double[matrixSize];
+    fillMatrixRandom(Qtmp, matrixSize);
+    // printMatrix(Qtmp, N, qCols * 8);
+    MultQ(M, Qtmp, Q, qCols, N);
+    // printMatrix(Q, N, qCols * 8);
+    while (!stop)
     {
         // TODO:
         // 1. Matrix multiplication
@@ -80,21 +82,101 @@ void largestEVs(const MT &M, double *Q, const size_t qCols, const size_t N, cons
         // 4. Switch Qin and Qout;
 
         // Matrix Multiplication
-        MultQ(M, Qin, Qout, qCols, N);
+        // std::cout << "Before: Q[0] = " << Q[0] << std::endl;
+        //std::cout << "Before: Qtmp[0] = " << Qtmp[0] << std::endl;
+        MultQ(M, Qtmp, Q, qCols, N);
+        // Why do the pointer swap, I could just do two multiplications in each step
+        MultQ(M, Q, Qtmp, qCols, N);
+        //std::cout << "After: Q[0] = " << Q[0] << std::endl;
+        //std::cout << "After: Qtmp[0] = " << Qtmp[0] << std::endl;
+        // Problem: The value of the entries is rising until it reaches nan, without converging -> there is probably something wrong with the multiplication
+        // The matrix is only have filled by the end (WHY?)
 
         // Call QR Algorithm and check tolerance
         if (iterationCounter % qrFrequency == 0)
         {
-            qrFixedBlockOptimizedDouble(Qout, N, qCols, 2, 1);
-            continue = !checkIterationTolerance(Qin, Qout, N, qCols, tolerance);
-            if (!continue && (Q == Qout))
+            //std::cout << "Before QR: Q[0] = " << Q[0] << std::endl;
+            //printMatrix(Q, N, qCols * 8);
+            qrFixedBlockOptimizedDouble(Q, N, qCols, 2, 1);
+            //std::cout << "After QR: Q[0] = " << Q[0] << std::endl;
+            printMatrix(Q, N, qCols * 8);
+            stop = checkIterationTolerance(Q, Qtmp, N, qCols, tolerance);
+            if (stop)
             {
+                std::cout << "largestEVs: Returning Q = " << std::endl;
+                printMatrix(Q, N, qCols * 8);
+                delete Qtmp;
+                std::cout << "largestEVs took " << iterationCounter << " iterations to complete" << std::endl;
                 return;
             }
         }
-        // Switcheroo
-        pointerSwap(&Qin, &Qout);
         iterationCounter++;
+    }
+}
+
+template <typename MT>
+void largestEVsIterative(const MT &M, double *Q, const size_t qCols, const size_t N, const size_t iterations, const size_t qrFrequency)
+{
+    bool stop = false;
+    size_t matrixSize = N * qCols * 8; // watch out, overflow error might occur, 8 because of col width
+    double *Qtmp = new double[matrixSize];
+    fillMatrixRandom(Qtmp, matrixSize);
+    // printMatrix(Qtmp, N, qCols * 8);
+    MultQ(M, Qtmp, Q, qCols, N);
+    // printMatrix(Q, N, qCols * 8);
+    for (size_t i = 0; i < iterations; i++)
+    {
+        // TODO:
+        // 1. Matrix multiplication
+        // 2. call qr when iterationCounter%qrFrequency = 0;
+        // 3. Check for tolerance between iterations (maybe some difference metric, after normalization (or qr call)).
+        // 4. Switch Qin and Qout;
+
+        // Matrix Multiplication
+        // std::cout << "Before: Q[0] = " << Q[0] << std::endl;
+        //std::cout << "Before: Qtmp[0] = " << Qtmp[0] << std::endl;
+        MultQ(M, Qtmp, Q, qCols, N);
+        // Why do the pointer swap, I could just do two multiplications in each step
+        MultQ(M, Q, Qtmp, qCols, N);
+        //std::cout << "After: Q[0] = " << Q[0] << std::endl;
+        //std::cout << "After: Qtmp[0] = " << Qtmp[0] << std::endl;
+        // Problem: The value of the entries is rising until it reaches nan, without converging -> there is probably something wrong with the multiplication
+        // The matrix is only have filled by the end (WHY?)
+
+        // Call QR Algorithm and check tolerance
+        if (i % qrFrequency == 0)
+        {
+            //std::cout << "Before QR: Q[0] = " << Q[0] << std::endl;
+            //printMatrix(Q, N, qCols * 8);
+            qrFixedBlockOptimizedDouble(Q, N, qCols, 2, 1);
+            //std::cout << "After QR: Q[0] = " << Q[0] << std::endl;
+            printMatrix(Q, N, qCols * 8);
+        }
+    }
+    std::cout << "largestEVs: Returning Q = " << std::endl;
+    printMatrix(Q, N, qCols * 8);
+    delete Qtmp;
+    return;
+}
+
+template <typename MT>
+void getEigenvalues(const MT &M, double *Q, const size_t qCols, const size_t N, std::vector<double> &EVs)
+{
+    size_t matrixSize = N * qCols * 8; // watch out, overflow error might occur, 8 because of col width
+    double *Qtmp = new double[matrixSize];
+    double EV = 0.0;
+    size_t col, uIndex, offset;
+    MultQ(M, Q, Qtmp, qCols, N);
+    for (size_t EVIndex = 0; EVIndex < EVs.size(); EVIndex++)
+    {
+        col = EVIndex / 8;
+        uIndex = col * N * 8 + offset;
+        for (size_t n = 0; n < N; n++)
+        {
+            EV += Qtmp[uIndex] / Q[uIndex];
+            uIndex += 8;
+        }
+        EVs[EVIndex] = EV / N;
     }
 }
 #endif // DUNE_MOES_HH
