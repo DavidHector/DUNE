@@ -128,11 +128,11 @@ void autotest(const double tolerance)
 
 void autotestNaive(const double tolerance)
 {
-    const int lenN = 7;
-    const int lenrhsWidth = 8;
-    size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 1000000};
-    size_t repetitions[lenN] = {50, 10, 5, 1, 10, 1, 1};
-    size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
+    const int lenN = 6;
+    const int lenrhsWidth = 6;
+    size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000};
+    size_t repetitions[lenN] = {50, 10, 5, 1, 1, 1};
+    size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256};
     double gFlops;
     std::ofstream outputFile;
     outputFile.open("QRGFLOPsNaive.csv");

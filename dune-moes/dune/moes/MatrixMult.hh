@@ -78,6 +78,8 @@ void MultQ(MT &M, const double *Qin, double *Qout, size_t qCols, size_t N)
     Vec4d inFirst, inSecond;
     Vec4d outFirst, outSecond;
     Vec4d entryM;
+    size_t mIr, mBcI, mBrI, mIc, qinIndex, qoutIndex, fMatRows, fMatCols;
+    size_t qColNEight;
     // How to iterate over M?
     // So I think for a BCRS Matrix, this only iterates over the blocks (which are fieldmatrices I guess)
     // Set Qout to zero
@@ -98,24 +100,25 @@ void MultQ(MT &M, const double *Qin, double *Qout, size_t qCols, size_t N)
         {
             cols++;
             // *colIterator is probably the FieldMatrix (which uses the dense matrix multAssign)
-            auto mBcI = rowIterator.index();     // Matrix Block Column Index
-            auto fMatRows = (*colIterator).rows; // Should be blockSize of the underlying field matrix
-            auto fMatCols = (*colIterator).cols;
+            mBcI = rowIterator.index();     // Matrix Block Column Index
+            fMatRows = (*colIterator).rows; // Should be blockSize of the underlying field matrix
+            fMatCols = (*colIterator).cols;
             // std::cout << "fMatRows = " << fMatRows << ", fMatCols = " << fMatCols << std::endl;
             for (auto i = 0; i < fMatRows; i++)
             {
-                auto mIr = mBrI * fMatRows + i; // Matrix Row Index
+                mIr = mBrI * fMatRows + i; // Matrix Row Index
                 for (size_t qCol = 0; qCol < qCols; qCol++)
                 {
                     productFirst = 0.0;
                     productSecond = 0.0;
-                    auto qoutIndex = qCol * N * 8 + mIr * 8; //col row  this should go to 64, but only goes to 24, why?
+                    qoutIndex = qCol * N * 8 + mIr * 8; //col row  this should go to 64, but only goes to 24, why?
                     //std::cout << "qoutIndex = " << qoutIndex << ", mIr = " << mIr << ", mBrI = " << mBrI << std::endl;
+                    mIc = mBcI * fMatCols; // Matrix Column Index, this is somehow very wrong
+                    qColNEight = qCol * N * 8;
                     for (auto j = 0; j < fMatCols; j++)
                     {
-                        auto mIc = mBcI * fMatCols + j; // Matrix Column Index, this is somehow very wrong
                         // std::cout << "qCol = " << qCol << ", mBcI = " << mBcI << ", fMatCols = " << fMatCols << ", mIc = " << mIc << ", mIr = " << mIr << std::endl;
-                        auto qinIndex = qCol * N * 8 + mIc * 8; // columns in the matrix are rows in the vector
+                        qinIndex = qColNEight + mIc * 8; // columns in the matrix are rows in the vector
                         inFirst.load(&Qin[qinIndex]);
                         inSecond.load(&Qin[qinIndex + 4]);
                         entryM = (*colIterator)[i][j]; // This seems fine
@@ -123,6 +126,7 @@ void MultQ(MT &M, const double *Qin, double *Qout, size_t qCols, size_t N)
 
                         productFirst += entryM * inFirst;
                         productSecond += entryM * inSecond;
+                        mIc++;
                     }
                     productFirst.store(&Qout[qoutIndex]);
                     productSecond.store(&Qout[qoutIndex + 4]);
