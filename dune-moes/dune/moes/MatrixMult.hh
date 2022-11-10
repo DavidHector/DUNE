@@ -35,7 +35,7 @@ void MultQ(MT &M, Vec4d *Qin, Vec4d *Qout, size_t qCols, size_t N)
         {
             cols++;
             // *colIterator is probably the FieldMatrix (which uses the dense matrix multAssign)
-            auto mBcI = rowIterator.index();
+            auto mBcI = colIterator.index();
             auto fMatRows = (*colIterator).rows; // Should be blockSize of the underlying field matrix
             auto fMatCols = (*colIterator).cols;
             for (auto i = 0; i < fMatRows; i++)
@@ -67,6 +67,7 @@ void MultQ(MT &M, Vec4d *Qin, Vec4d *Qout, size_t qCols, size_t N)
 }
 /*
     Matrix multiplication with double Q 
+    WTF this shouldnt even work, we only store the matrix multiplication of the last BlockMatrix, nothing here makes sense
 */
 
 template <typename MT>
@@ -100,7 +101,7 @@ void MultQ(MT &M, const double *Qin, double *Qout, size_t qCols, size_t N)
         {
             cols++;
             // *colIterator is probably the FieldMatrix (which uses the dense matrix multAssign)
-            mBcI = rowIterator.index();     // Matrix Block Column Index
+            mBcI = colIterator.index();     // Matrix Block Column Index
             fMatRows = (*colIterator).rows; // Should be blockSize of the underlying field matrix
             fMatCols = (*colIterator).cols;
             // std::cout << "fMatRows = " << fMatRows << ", fMatCols = " << fMatCols << std::endl;
@@ -132,6 +133,110 @@ void MultQ(MT &M, const double *Qin, double *Qout, size_t qCols, size_t N)
                     productSecond.store(&Qout[qoutIndex + 4]);
                 }
             }
+        }
+    }
+}
+
+/*
+    MultQSimple
+    Matrix multiplication with double Q 
+    This simplified Multiplication assumes that the Matrix consists of 1x1 submatrices
+    Uses Vec4d for vectorization
+*/
+template <typename MT>
+void MultQSimple(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, size_t qCols, size_t N)
+{
+    Vec4d productFirst, productSecond, inFirst, inSecond, outFirst, outSecond, entryM;
+    size_t qinIndex, qoutIndex;
+    auto endRow = M.end();
+    for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+    {
+        auto endCol = (*rowIterator).end();
+        auto rowMatrix = rowIterator.index(); // Matrix Block Row Index
+        for (size_t qCol = 0; qCol < qCols; qCol++)
+        {
+            qoutIndex = 8 * N * qCol + rowMatrix * 8;
+            productFirst = 0.0;
+            productSecond = 0.0;
+            for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
+            {
+                auto colMatrix = colIterator.index();
+                qinIndex = 8 * N * qCol + 8 * colMatrix;
+                inFirst.load(&Qin[qinIndex]);
+                inSecond.load(&Qin[qinIndex + 4]);
+                entryM = (*colIterator)[0][0];
+                productFirst += entryM * inFirst;
+                productSecond += entryM * inSecond;
+            }
+            productFirst.store(&Qout[qoutIndex]);
+            productSecond.store(&Qout[qoutIndex + 4]);
+        }
+    }
+}
+
+/*
+    MultQSimpleNaive
+    Matrix multiplication with double Q 
+    This simplified Multiplication assumes that the Matrix consists of 1x1 submatrices
+    No vectorization
+*/
+template <typename MT>
+void MultQSimpleNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, size_t qCols, size_t N)
+{
+    double product, entryM;
+    size_t qinIndex, qoutIndex;
+    auto endRow = M.end();
+    for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+    {
+        auto endCol = (*rowIterator).end();
+        auto rowMatrix = rowIterator.index();
+        for (size_t qCol = 0; qCol < qCols; qCol++)
+        {
+            for (size_t subqCol = 0; subqCol < 8; subqCol++)
+            {
+                qoutIndex = 8 * N * qCol + rowMatrix * 8 + subqCol;
+                product = 0.0;
+                for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
+                {
+                    auto colMatrix = colIterator.index();
+                    qinIndex = 8 * N * qCol + 8 * colMatrix + subqCol;
+                    entryM = (*colIterator)[0][0];
+                    product += entryM * Qin[qinIndex];
+                }
+                Qout[qoutIndex] = product;
+            }
+        }
+    }
+}
+
+/*
+    MultQSimpleNaiveQNaive
+    Matrix multiplication with double Q, but Q no longer has blocks, just columns of vectors
+    This simplified Multiplication assumes that the Matrix consists of 1x1 submatrices
+    No vectorization
+*/
+template <typename MT>
+void MultQSimpleNaiveQNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, size_t qCols, size_t N)
+{
+    double product, entryM;
+    size_t qinIndex, qoutIndex;
+    auto endRow = M.end();
+    for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+    {
+        auto endCol = (*rowIterator).end();
+        auto rowMatrix = rowIterator.index();
+        for (size_t qCol = 0; qCol < qCols; qCol++)
+        {
+            qoutIndex = N * qCol + rowMatrix;
+            product = 0.0;
+            for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
+            {
+                auto colMatrix = colIterator.index();
+                qinIndex = N * qCol + colMatrix;
+                entryM = (*colIterator)[0][0];
+                product += entryM * Qin[qinIndex];
+            }
+            Qout[qoutIndex] = product;
         }
     }
 }

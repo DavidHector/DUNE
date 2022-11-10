@@ -84,6 +84,26 @@ void getGFLOPSqr(double *Q, QR qr, F f, size_t N, size_t rhsWidth, size_t repeti
     std::cout << "GFLOPS: " << gFlops << std::endl;
 }
 
+template <typename QR, typename F>
+void getGFLOPSqrNaive(double *Q, QR qr, F f, size_t N, size_t rhsWidth, size_t repetitions, double &gFlops, size_t threadNumber = 0, size_t blockSize = 2, size_t uBlockSize = 1)
+{
+    double flops = f(N, rhsWidth);
+    auto start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < repetitions; i++)
+    {
+        qr(Q, N, rhsWidth);
+    }
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+    auto averageDuration = (double)duration.count() / repetitions;
+    gFlops = (flops / averageDuration) / 1.0; // 1e6 when duration in ms, 1e3 when using µs
+    const std::lock_guard<std::mutex> lock(printMutex);
+    std::cout << "Thread Number (0 if single threaded): " << threadNumber << std::endl;
+    std::cout << "Average Duration: " << averageDuration / 1e6 << "ms" << std::endl;
+    std::cout << "Memory usage (full Matrix): " << N * rhsWidth * 8.0 / 1e6 << "MB" << std::endl;
+    std::cout << "GFLOPS: " << gFlops << std::endl;
+}
+
 void singleThreadTest(size_t N, size_t rhsWidth, size_t repetitions, const double tolerance, size_t threadNumber, double &gFlops)
 {
     size_t matrixSizeDouble = N * rhsWidth;
@@ -92,6 +112,7 @@ void singleThreadTest(size_t N, size_t rhsWidth, size_t repetitions, const doubl
     getGFLOPSqr(Qdouble, qrFixedBlockOptimizedDouble, flopsQR, N, rhsWidth, repetitions, gFlops, threadNumber);
     checkOrthoNormalityFixed(Qdouble, N, rhsWidth / 8, tolerance);
     // printMatrix(Qdouble, N, rhsWidth);
+    delete[] Qdouble;
 }
 
 void singleThreadTestNaive(size_t N, size_t rhsWidth, size_t repetitions, const double tolerance, size_t threadNumber, double &gFlops)
@@ -99,9 +120,9 @@ void singleThreadTestNaive(size_t N, size_t rhsWidth, size_t repetitions, const 
     size_t matrixSizeDouble = N * rhsWidth;
     double *Qdouble = new double[matrixSizeDouble];
     fillMatrixRandom(Qdouble, matrixSizeDouble);
-    getGFLOPSqr(Qdouble, qrNaive, flopsQR, N, rhsWidth, repetitions, gFlops, threadNumber);
-    checkOrthoNormalityFixed(Qdouble, N, rhsWidth / 8, tolerance);
-    //printMatrix(Qdouble, N, rhsWidth);
+    getGFLOPSqrNaive(Qdouble, qrNaiveQNaive, flopsQR, N, rhsWidth, repetitions, gFlops, threadNumber);
+    checkOrthoNormalityNaive(Qdouble, N, rhsWidth, tolerance);
+    delete[] Qdouble;
 }
 
 void autotest(const double tolerance)
@@ -131,7 +152,7 @@ void autotestNaive(const double tolerance)
     const int lenN = 5;
     const int lenrhsWidth = 6;
     size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000};
-    size_t repetitions[lenN] = {50, 10, 5, 1, 1};
+    size_t repetitions[lenN] = {50, 10, 5, 1, 10};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256};
     double gFlops;
     std::ofstream outputFile;
@@ -259,6 +280,8 @@ int main(int argc, char const *argv[])
     //singleThreadTest(N, rhsWidth, repetitions, tolerance, 0, gFlops);
     autotest(tolerance);
     // printMatrix(Q, N, rhsWidth);
+    delete[] Q;
+    delete[] Qdouble;
 
     return 0;
 }

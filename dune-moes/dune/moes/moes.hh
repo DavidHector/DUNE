@@ -112,6 +112,7 @@ void largestEVs(const MT &M, double *Q, const size_t qCols, const size_t N, cons
         }
         iterationCounter++;
     }
+    delete[] Qtmp;
 }
 
 template <typename MT>
@@ -155,7 +156,7 @@ void largestEVsIterative(const MT &M, double *Q, const size_t qCols, const size_
     }
     std::cout << "largestEVs: Returning Q = " << std::endl;
     printMatrix(Q, N, qCols * 8);
-    delete Qtmp;
+    delete[] Qtmp;
     return;
 }
 
@@ -178,5 +179,6 @@ void getEigenvalues(const MT &M, double *Q, const size_t qCols, const size_t N, 
         }
         EVs[EVIndex] = EV / N;
     }
+    delete[] Qtmp;
 }
 #endif // DUNE_MOES_HH

@@ -527,6 +527,57 @@ void qrNaive(double *Q, size_t numRows, size_t numCols, size_t blockSize, size_t
     }
 }
 
+/* 
+    Inefficient naive implementation of the modified Gram Schmidt algorithm, only for comparison.
+    no blocks
+*/
+void qrNaiveQNaive(double *Q, size_t numRows, size_t numCols)
+{
+    double u, v, unorm;
+    double uv = 0.0;
+    size_t uIndex = 0;
+    size_t vIndex = 0;
+
+    for (size_t col = 0; col < numCols; col++)
+    {
+        unorm = 0.0;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            uIndex = col * numRows + row;
+            u = Q[uIndex];
+            unorm += u * u;
+        }
+        for (size_t folCol = col + 1; folCol < numCols; folCol++)
+        {
+            // Dot product
+            uv = 0.0;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                uIndex = col * numRows + row;
+                vIndex = folCol * numRows + row;
+                u = Q[uIndex];
+                v = Q[vIndex];
+                uv += u * v;
+            }
+
+            // linear combination
+            for (size_t row = 0; row < numRows; row++)
+            {
+                uIndex = col * numRows + row;
+                vIndex = folCol * numRows + row;
+                u = Q[uIndex];
+                Q[vIndex] -= uv / unorm * u;
+            }
+        }
+        // normalize current column
+        for (size_t row = 0; row < numRows; row++)
+        {
+            uIndex = col * numRows + row;
+            Q[uIndex] /= std::sqrt(unorm);
+        }
+    }
+}
+
 void getFactorsSingleFunction(const std::vector<std::vector<double>> &Q, std::vector<double> &factors, const size_t &orthIndex)
 {
     double uv = 0.0;

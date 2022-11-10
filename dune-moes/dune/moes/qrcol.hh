@@ -21,6 +21,14 @@ void fillMatrixRandom(double *Q, size_t matrixSize)
     }
 }
 
+void fillMatrixRandom(std::unique_ptr<double[]> &Q, size_t matrixSize)
+{
+    for (size_t i = 0; i < matrixSize; i++)
+    {
+        Q[i] = static_cast<double>(std::rand()) / RAND_MAX;
+    }
+}
+
 void printMatrix(double *Q, const size_t N, const size_t rhsWidth)
 {
     std::cout << std::endl;
@@ -125,6 +133,50 @@ void checkOrthoNormality(const Vec4d *Q, const size_t rows, const size_t cols, c
         }
     }
     std::cout << "All tests successfull!" << std::endl;
+}
+
+void checkOrthoNormalityNaive(const double *Q, const size_t numRows, const size_t numCols, const double tolerance)
+{
+    double dP = 0.0; // dotproduct
+    size_t vIndex = 0;
+    size_t uIndex = 0;
+    for (size_t col = 0; col < numCols; col++)
+    {
+        for (size_t folcol = col; folcol < numCols; folcol++)
+        {
+            // calculate the dotproducts between column vectors (including the current one)
+            dP = 0.0;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                uIndex = col * numRows + row;
+                vIndex = folcol * numRows + row;
+                dP += Q[uIndex] * Q[vIndex];
+            }
+            if (col == folcol)
+            {
+                // norm test
+                if (std::abs(dP - 1.0) > tolerance)
+                {
+                    std::cout << "checkOrthoNormalityNaive: Norm violation!" << std::endl;
+                    std::cout << "Norm is " << dP << " should be: 1" << std::endl;
+                    std::cout << "Column: " << col << std::endl;
+                    return;
+                }
+            }
+            else
+            {
+                // orthogonality test
+                if (std::abs(dP) > tolerance)
+                {
+                    std::cout << "checkOrthoNormalityNaive: Orthogonality violation!" << std::endl;
+                    std::cout << "Dotproduct is " << dP << " should be: 0" << std::endl;
+                    std::cout << "Col 1: " << col << " Col 2:" << folcol << std::endl;
+                    return;
+                }
+            }
+        }
+    }
+    std::cout << "checkOrthoNormalityNaive: All tests successfull!" << std::endl;
 }
 
 void checkOrthoNormalityFixed(const Vec4d *Q, const size_t rows, const size_t cols, const double tolerance)
@@ -402,6 +454,8 @@ void checkOrthoNormalityFixed(const double *Q, const size_t rows, const size_t c
         }
     }
     std::cout << "All tests successfull!" << std::endl;
+    delete[] dotProducts;
+    delete[] iBDP;
 }
 
 /*
@@ -1595,6 +1649,9 @@ void qrFixedBlockOptimizedDouble(double *Q, size_t numRows, size_t numCols, size
         }
         // end orthogonalize following blocks
     }
+    delete[] norms;
+    delete[] dotProducts;
+    delete[] udots;
 }
 
 #endif // DUNE_MOES_QRCOL_HH
