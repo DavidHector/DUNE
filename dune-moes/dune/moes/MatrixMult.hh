@@ -71,7 +71,7 @@ void MultQ(MT &M, Vec4d *Qin, Vec4d *Qout, size_t qCols, size_t N)
 */
 
 template <typename MT>
-void MultQ(MT &M, const double *Qin, double *Qout, size_t qCols, size_t N)
+void MultQ(MT &M, const double *Qin, double *Qout, const size_t qCols, const size_t N)
 {
     Vec4d v, u;
     Vec4d zeroVec = 0.0;
@@ -144,7 +144,7 @@ void MultQ(MT &M, const double *Qin, double *Qout, size_t qCols, size_t N)
     Uses Vec4d for vectorization
 */
 template <typename MT>
-void MultQSimple(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, size_t qCols, size_t N)
+void MultQSimple(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, const size_t qCols, const size_t N)
 {
     Vec4d productFirst, productSecond, inFirst, inSecond, outFirst, outSecond, entryM;
     size_t qinIndex, qoutIndex;
@@ -170,6 +170,80 @@ void MultQSimple(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<do
             }
             productFirst.store(&Qout[qoutIndex]);
             productSecond.store(&Qout[qoutIndex + 4]);
+        }
+    }
+}
+
+/*
+    PowerIteration
+    Power Iteration with double Q, assuming the 2x1 Block data structure
+    This simplified Multiplication assumes that the Matrix consists of 1x1 submatrices
+    Uses Vec4d for vectorization
+*/
+template <typename MT>
+void powerIteration(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, const size_t qCols, const size_t N)
+{
+    Vec4d productFirst, productSecond, sumFirst, sumSecond, inFirst, inSecond, outFirst, outSecond, normFirst, normSecond, entryM;
+    size_t qinIndex, qoutIndex;
+    std::unique_ptr<double[]> norms(new double[qCols * 8]);
+
+    // set Qout to 0
+    for (size_t i = 0; i < 8 * N * qCols; i++)
+    {
+        Qout[i] = 0.0;
+    }
+    //initialize norms
+    for (size_t i = 0; i < qCols * 8; i++)
+    {
+        norms[i] = 0.0;
+    }
+
+    auto endRow = M.end();
+    for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+    {
+        auto endCol = (*rowIterator).end();
+        auto rowMatrix = rowIterator.index(); // Matrix Block Row Index
+        for (size_t qCol = 0; qCol < qCols; qCol++)
+        {
+            qoutIndex = 8 * N * qCol + rowMatrix * 8;
+            productFirst = 0.0;
+            productSecond = 0.0;
+            for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
+            {
+                auto colMatrix = colIterator.index();
+                qinIndex = 8 * N * qCol + 8 * colMatrix;
+                inFirst.load(&Qin[qinIndex]);
+                inSecond.load(&Qin[qinIndex + 4]);
+                entryM = (*colIterator)[0][0];
+                productFirst += entryM * inFirst;
+                productSecond += entryM * inSecond;
+            }
+            sumFirst.load(&norms[8 * qCol]);
+            sumSecond.load(&norms[8 * qCol + 4]);
+            sumFirst += square(productFirst);
+            sumSecond += square(productSecond);
+            sumFirst.store(&norms[8 * qCol]);
+            sumSecond.store(&norms[8 * qCol + 4]);
+            productFirst.store(&Qout[qoutIndex]);
+            productSecond.store(&Qout[qoutIndex + 4]);
+        }
+    }
+    // re-normalize
+    // I can probably save some access time, if I figure out where there are non-zero entries. But it is probably better to assume dense vectors
+    qoutIndex = 0;
+    for (size_t qCol = 0; qCol < qCols; qCol++)
+    {
+        normFirst.load(&norms[8 * qCol]);
+        normSecond.load(&norms[8 * qCol + 4]);
+        for (size_t qRow = 0; qRow < N; qRow++)
+        {
+            inFirst.load(&Qout[qoutIndex]);
+            inSecond.load(&Qout[qoutIndex + 4]);
+            outFirst = inFirst / sqrt(normFirst);
+            outSecond = inSecond / sqrt(normSecond);
+            outFirst.store(&Qout[qoutIndex]);
+            outSecond.store(&Qout[qoutIndex + 4]);
+            qoutIndex += 8;
         }
     }
 }

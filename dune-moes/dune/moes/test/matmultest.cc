@@ -174,7 +174,7 @@ void autotestIdentityNaive()
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
             BCRSMat identity;
             setupIdentity(identity, Ns[i] / BS);
-            singleThreadTest(identity, MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], threadNumber, gFlops, entriesPerRow);
+            singleThreadTest(identity, MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j] * 8, repetitions[i], threadNumber, gFlops, entriesPerRow);
             outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlops << ",\n";
         }
     }
@@ -236,7 +236,7 @@ void autotestLaplacianNaive()
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
             BCRSMat laplacian;
             setupLaplacian(laplacian, std::sqrt(Ns[i]));
-            singleThreadTest(laplacian, MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], threadNumber, gFlops, entriesPerRow);
+            singleThreadTest(laplacian, MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j] * 8, repetitions[i], threadNumber, gFlops, entriesPerRow);
             outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlops << ",\n";
         }
     }
@@ -286,9 +286,19 @@ int main(int argc, char const *argv[])
 
     const std::string filename("matmulSimple_identity_gflops.csv");
     //autotest(identity, MultQSimple<BCRSMat>, filename, identityEPR);
+    std::cout << "Optimized Multiplication (identity): " << std::endl;
     autotestIdentity();
+    std::cout << std::endl
+              << std::endl
+              << "Naive Multiplication (identity): " << std::endl;
     autotestIdentityNaive();
+    std::cout << std::endl
+              << std::endl
+              << "Optimized Multiplication (laplacian): " << std::endl;
     autotestLaplacian();
+    std::cout << std::endl
+              << std::endl
+              << "Naive Multiplication (laplacian): " << std::endl;
     autotestLaplacianNaive();
     return 0;
 }

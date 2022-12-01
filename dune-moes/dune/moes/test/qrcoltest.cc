@@ -65,7 +65,7 @@ void getGFLOPSqr(Vec4d *Q, QR qr, F f, size_t N, size_t rhsWidth, size_t repetit
 }
 
 template <typename QR, typename F>
-void getGFLOPSqr(double *Q, QR qr, F f, size_t N, size_t rhsWidth, size_t repetitions, double &gFlops, size_t threadNumber = 0, size_t blockSize = 2, size_t uBlockSize = 1)
+void getGFLOPSqr(std::unique_ptr<double[]> &Q, QR qr, F f, size_t N, size_t rhsWidth, size_t repetitions, double &gFlops, size_t threadNumber = 0, size_t blockSize = 2, size_t uBlockSize = 1)
 {
     double flops = f(N, rhsWidth);
     auto start = std::chrono::high_resolution_clock::now();
@@ -107,12 +107,13 @@ void getGFLOPSqrNaive(double *Q, QR qr, F f, size_t N, size_t rhsWidth, size_t r
 void singleThreadTest(size_t N, size_t rhsWidth, size_t repetitions, const double tolerance, size_t threadNumber, double &gFlops)
 {
     size_t matrixSizeDouble = N * rhsWidth;
-    double *Qdouble = new double[matrixSizeDouble];
+    // double *Qdouble = new double[matrixSizeDouble];
+    std::unique_ptr<double[]> Qdouble(new double[matrixSizeDouble]);
     fillMatrixRandom(Qdouble, matrixSizeDouble);
     getGFLOPSqr(Qdouble, qrFixedBlockOptimizedDouble, flopsQR, N, rhsWidth, repetitions, gFlops, threadNumber);
     checkOrthoNormalityFixed(Qdouble, N, rhsWidth / 8, tolerance);
     // printMatrix(Qdouble, N, rhsWidth);
-    delete[] Qdouble;
+    // delete[] Qdouble;
 }
 
 void singleThreadTestNaive(size_t N, size_t rhsWidth, size_t repetitions, const double tolerance, size_t threadNumber, double &gFlops)

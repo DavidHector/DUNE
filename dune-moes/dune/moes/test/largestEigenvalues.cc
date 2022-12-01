@@ -7,7 +7,7 @@
 
 int main(int argc, char const *argv[])
 {
-    size_t N = 1000;
+    size_t N = 10000;
     size_t rhsWidth = 256;
     size_t repetitions = 10;
     const double tolerance = 1e-6;
@@ -48,14 +48,14 @@ int main(int argc, char const *argv[])
     size_t Qsize = N * rhsWidth;
     size_t qCols = rhsWidth / 8;
     size_t EVNumber = 8;
-    double *Q = new double[Qsize];
+    std::unique_ptr<double[]> Q(new double[Qsize]);
     std::vector<double> EVs(EVNumber, 0.0);
     static const int BS = 1;
     typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
     typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
     BCRSMat laplacian;
     setupLaplacian(laplacian, std::sqrt(N)); //AAAAAArgghh, this sets the matrix to size N*N x N*N (with N*N*5 entries, not really sure what the BlockSize does)
-    largestEVsIterative(laplacian, Q, qCols, N, 5, 1);
+    largestEVsIterative(laplacian, Q, qCols, N, 1000, 1);
     std::cout << "After calling largestEVs: Q[0] = " << Q[0] << std::endl;
     getEigenvalues(laplacian, Q, qCols, N, EVs);
     std::cout << "After calling getEigenvalues: Q[0] = " << Q[0] << std::endl;
