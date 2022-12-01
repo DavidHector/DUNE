@@ -93,6 +93,39 @@ void singleThreadTest(const MT &M, Matmul matmul, size_t N, size_t rhsWidth, siz
     //delete[] Qnew;
 }
 
+template <typename Matmul, typename F, typename MT>
+void getGFLOPSMatMulQNaive(std::unique_ptr<double[]> &Qold, std::unique_ptr<double[]> &Qnew, const MT &M, Matmul matmul, F &f, size_t N, size_t rhsWidth, size_t repetitions, double &gFlops, size_t entriesPerRow, size_t threadNumber = 0)
+{
+    double flops = f(N, entriesPerRow, rhsWidth); // N, 1, rhsWidth for identity matrix
+    auto start = std::chrono::high_resolution_clock::now();
+    for (size_t i = 0; i < repetitions; i++)
+    {
+        matmul(M, Qold, Qnew, rhsWidth, N);
+    }
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+    auto averageDuration = (double)duration.count() / repetitions;
+    gFlops = (flops / averageDuration) / 1.0; // 1e6 when duration in ms, 1e3 when using µs
+    const std::lock_guard<std::mutex> lock(printMutex);
+    std::cout << "Thread Number (0 if single threaded): " << threadNumber << std::endl;
+    std::cout << "Average Duration: " << averageDuration / 1e6 << "ms" << std::endl;
+    std::cout << "Memory usage (full Matrix): " << N * rhsWidth * 8.0 / 1e6 << "MB" << std::endl;
+    std::cout << "GFLOPS: " << gFlops << std::endl;
+}
+
+template <typename MT, typename Matmul>
+void singleThreadTestQNaive(const MT &M, Matmul matmul, size_t N, size_t rhsWidth, size_t repetitions, size_t threadNumber, double &gFlops, size_t entriesPerRow)
+{
+    size_t matrixSizeDouble = N * rhsWidth;
+    std::unique_ptr<double[]> Qold(new double[matrixSizeDouble]);
+    std::unique_ptr<double[]> Qnew(new double[matrixSizeDouble]);
+    fillMatrixRandom(Qold, matrixSizeDouble);
+    getGFLOPSMatMulQNaive(Qold, Qnew, M, matmul, flopsMatmul, N, rhsWidth, repetitions, gFlops, entriesPerRow, threadNumber);
+    checkEquality(Qold, Qnew, matrixSizeDouble);
+    //delete[] Qold;
+    //delete[] Qnew;
+}
+
 template <typename MT, typename Matmul>
 void autotest(const MT &M, Matmul matmul, const std::string &filename, size_t entriesPerRow)
 {
@@ -174,7 +207,7 @@ void autotestIdentityNaive()
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
             BCRSMat identity;
             setupIdentity(identity, Ns[i] / BS);
-            singleThreadTest(identity, MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j] * 8, repetitions[i], threadNumber, gFlops, entriesPerRow);
+            singleThreadTestQNaive(identity, MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], threadNumber, gFlops, entriesPerRow);
             outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlops << ",\n";
         }
     }
@@ -236,7 +269,7 @@ void autotestLaplacianNaive()
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
             BCRSMat laplacian;
             setupLaplacian(laplacian, std::sqrt(Ns[i]));
-            singleThreadTest(laplacian, MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j] * 8, repetitions[i], threadNumber, gFlops, entriesPerRow);
+            singleThreadTestQNaive(laplacian, MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], threadNumber, gFlops, entriesPerRow);
             outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlops << ",\n";
         }
     }
