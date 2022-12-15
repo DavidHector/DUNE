@@ -298,6 +298,7 @@ void autotestIdentityMT(const size_t threadCount)
     {
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
+            std::cout << "N = " << Ns[i] << ", rhsWidth = " << rhsWidths[j] << std::endl;
             // Obviously I have to build the matrix with the N here, duh
             typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
@@ -340,6 +341,7 @@ void autotestIdentityNaiveMT(const size_t threadCount)
     {
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
+            std::cout << "N = " << Ns[i] << ", rhsWidth = " << rhsWidths[j] << std::endl;
             // Obviously I have to build the matrix with the N here, duh
             typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
@@ -382,6 +384,7 @@ void autotestLaplacianMT(const size_t threadCount)
     {
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
+            std::cout << "N = " << Ns[i] << ", rhsWidth = " << rhsWidths[j] << std::endl;
             // Obviously I have to build the matrix with the N here, duh
             typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
@@ -424,6 +427,7 @@ void autotestLaplacianNaiveMT(const size_t threadCount)
     {
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
+            std::cout << "N = " << Ns[i] << ", rhsWidth = " << rhsWidths[j] << std::endl;
             // Obviously I have to build the matrix with the N here, duh
             typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
