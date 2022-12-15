@@ -73,11 +73,13 @@ void getGFLOPSMatMul(std::unique_ptr<double[]> &Qold, std::unique_ptr<double[]> 
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
     auto averageDuration = (double)duration.count() / repetitions;
     gFlops = (flops / averageDuration) / 1.0; // 1e6 when duration in ms, 1e3 when using µs
+    /*
     const std::lock_guard<std::mutex> lock(printMutex);
     std::cout << "Thread Number (0 if single threaded): " << threadNumber << std::endl;
     std::cout << "Average Duration: " << averageDuration / 1e6 << "ms" << std::endl;
     std::cout << "Memory usage (full Matrix): " << N * rhsWidth * 8.0 / 1e6 << "MB" << std::endl;
     std::cout << "GFLOPS: " << gFlops << std::endl;
+    */
 }
 
 template <typename MT, typename Matmul>
@@ -88,7 +90,7 @@ void singleThreadTest(const MT &M, Matmul matmul, size_t N, size_t rhsWidth, siz
     std::unique_ptr<double[]> Qnew(new double[matrixSizeDouble]);
     fillMatrixRandom(Qold, matrixSizeDouble);
     getGFLOPSMatMul(Qold, Qnew, M, matmul, flopsMatmul, N, rhsWidth, repetitions, gFlops, entriesPerRow, threadNumber);
-    checkEquality(Qold, Qnew, matrixSizeDouble);
+    // checkEquality(Qold, Qnew, matrixSizeDouble);
     //delete[] Qold;
     //delete[] Qnew;
 }
@@ -106,11 +108,13 @@ void getGFLOPSMatMulQNaive(std::unique_ptr<double[]> &Qold, std::unique_ptr<doub
     auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
     auto averageDuration = (double)duration.count() / repetitions;
     gFlops = (flops / averageDuration) / 1.0; // 1e6 when duration in ms, 1e3 when using µs
+    /*
     const std::lock_guard<std::mutex> lock(printMutex);
     std::cout << "Thread Number (0 if single threaded): " << threadNumber << std::endl;
     std::cout << "Average Duration: " << averageDuration / 1e6 << "ms" << std::endl;
     std::cout << "Memory usage (full Matrix): " << N * rhsWidth * 8.0 / 1e6 << "MB" << std::endl;
     std::cout << "GFLOPS: " << gFlops << std::endl;
+    */
 }
 
 template <typename MT, typename Matmul>
@@ -121,7 +125,7 @@ void singleThreadTestQNaive(const MT &M, Matmul matmul, size_t N, size_t rhsWidt
     std::unique_ptr<double[]> Qnew(new double[matrixSizeDouble]);
     fillMatrixRandom(Qold, matrixSizeDouble);
     getGFLOPSMatMulQNaive(Qold, Qnew, M, matmul, flopsMatmul, N, rhsWidth, repetitions, gFlops, entriesPerRow, threadNumber);
-    checkEquality(Qold, Qnew, matrixSizeDouble);
+    // checkEquality(Qold, Qnew, matrixSizeDouble);
     //delete[] Qold;
     //delete[] Qnew;
 }
@@ -276,6 +280,174 @@ void autotestLaplacianNaive()
     outputFile.close();
 }
 
+void autotestIdentityMT(const size_t threadCount)
+{
+    size_t entriesPerRow = 1;
+    const int lenN = 5;
+    const int lenrhsWidth = 8;
+    const int BS = 1;
+    size_t Ns[lenN] = {10000, 40000, 160000, 490000, 1000000};
+    size_t repetitions[lenN] = {50, 10, 5, 1, 1};
+    size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
+    double gFlopsAvg;
+    std::ofstream outputFile;
+    std::string filename = "matmulSimple_identity_gflopsMT.csv";
+    outputFile.open(filename);
+    outputFile << "N,rhsWidth,repetitions,GFLOPs,threadCount\n";
+    for (size_t i = 0; i < lenN; i++)
+    {
+        for (size_t j = 0; j < lenrhsWidth; j++)
+        {
+            // Obviously I have to build the matrix with the N here, duh
+            typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
+            typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
+            BCRSMat identity;
+            setupIdentity(identity, Ns[i] / BS);
+            std::vector<std::thread> threads;
+            std::vector<double> gFlops(threadCount, 0.0);
+            for (size_t tN = 0; tN < threadCount; tN++)
+            {
+                threads.push_back(std::thread(singleThreadTest<BCRSMat, decltype(MultQSimpleUnique<BCRSMat>)>, std::ref(identity), MultQSimpleUnique<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], tN, std::ref(gFlops[tN]), entriesPerRow));
+            }
+            gFlopsAvg = 0.0;
+            for (size_t tN = 0; tN < threadCount; tN++)
+            {
+                threads[tN].join();
+                gFlopsAvg += gFlops[tN];
+            }
+            gFlopsAvg /= threadCount;
+            outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlopsAvg << "," << threadCount << ",\n";
+        }
+    }
+    outputFile.close();
+}
+
+void autotestIdentityNaiveMT(const size_t threadCount)
+{
+    size_t entriesPerRow = 1;
+    const int lenN = 5;
+    const int lenrhsWidth = 8;
+    const int BS = 1;
+    size_t Ns[lenN] = {10000, 40000, 160000, 490000, 1000000};
+    size_t repetitions[lenN] = {50, 10, 5, 1, 1};
+    size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
+    double gFlopsAvg;
+    std::ofstream outputFile;
+    std::string filename = "matmulSimpleNaive_identity_gflopsMT.csv";
+    outputFile.open(filename);
+    outputFile << "N,rhsWidth,repetitions,GFLOPs,threadCount,\n";
+    for (size_t i = 0; i < lenN; i++)
+    {
+        for (size_t j = 0; j < lenrhsWidth; j++)
+        {
+            // Obviously I have to build the matrix with the N here, duh
+            typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
+            typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
+            BCRSMat identity;
+            setupIdentity(identity, Ns[i] / BS);
+            std::vector<std::thread> threads;
+            std::vector<double> gFlops(threadCount, 0.0);
+            for (size_t tN = 0; tN < threadCount; tN++)
+            {
+                threads.push_back(std::thread(singleThreadTestQNaive<BCRSMat, decltype(MultQSimpleNaiveQNaive<BCRSMat>)>, std::ref(identity), MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], tN, std::ref(gFlops[tN]), entriesPerRow));
+            }
+            gFlopsAvg = 0.0;
+            for (size_t tN = 0; tN < threadCount; tN++)
+            {
+                threads[tN].join();
+                gFlopsAvg += gFlops[tN];
+            }
+            gFlopsAvg /= threadCount;
+            outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlopsAvg << "," << threadCount << ",\n";
+        }
+    }
+    outputFile.close();
+}
+
+void autotestLaplacianMT(const size_t threadCount)
+{
+    size_t entriesPerRow = 5;
+    const int lenN = 5;
+    const int lenrhsWidth = 8;
+    const int BS = 1;
+    size_t Ns[lenN] = {10000, 40000, 160000, 490000, 1000000};
+    size_t repetitions[lenN] = {50, 10, 5, 1, 1};
+    size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
+    double gFlopsAvg;
+    std::ofstream outputFile;
+    std::string filename = "matmulSimple_laplacian_gflopsMT.csv";
+    outputFile.open(filename);
+    outputFile << "N,rhsWidth,repetitions,GFLOPs,threadCount,\n";
+    for (size_t i = 0; i < lenN; i++)
+    {
+        for (size_t j = 0; j < lenrhsWidth; j++)
+        {
+            // Obviously I have to build the matrix with the N here, duh
+            typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
+            typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
+            BCRSMat laplacian;
+            setupLaplacian(laplacian, std::sqrt(Ns[i]));
+            std::vector<std::thread> threads;
+            std::vector<double> gFlops(threadCount, 0.0);
+            for (size_t tN = 0; tN < threadCount; tN++)
+            {
+                threads.push_back(std::thread(singleThreadTest<BCRSMat, decltype(MultQSimpleUnique<BCRSMat>)>, std::ref(laplacian), MultQSimpleUnique<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], tN, std::ref(gFlops[tN]), entriesPerRow));
+            }
+            gFlopsAvg = 0.0;
+            for (size_t tN = 0; tN < threadCount; tN++)
+            {
+                threads[tN].join();
+                gFlopsAvg += gFlops[tN];
+            }
+            gFlopsAvg /= threadCount;
+            outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlopsAvg << "," << threadCount << ",\n";
+        }
+    }
+    outputFile.close();
+}
+
+void autotestLaplacianNaiveMT(const size_t threadCount)
+{
+    size_t entriesPerRow = 5;
+    const int lenN = 5;
+    const int lenrhsWidth = 8;
+    const int BS = 1;
+    size_t Ns[lenN] = {10000, 40000, 160000, 490000, 1000000};
+    size_t repetitions[lenN] = {50, 10, 5, 1, 1};
+    size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
+    double gFlopsAvg;
+    std::ofstream outputFile;
+    std::string filename = "matmulSimpleNaive_laplacian_gflopsMT.csv";
+    outputFile.open(filename);
+    outputFile << "N,rhsWidth,repetitions,GFLOPs,threadCount\n";
+    for (size_t i = 0; i < lenN; i++)
+    {
+        for (size_t j = 0; j < lenrhsWidth; j++)
+        {
+            // Obviously I have to build the matrix with the N here, duh
+            typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
+            typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
+            BCRSMat laplacian;
+            setupLaplacian(laplacian, std::sqrt(Ns[i]));
+            std::vector<std::thread> threads;
+            std::vector<double> gFlops(threadCount, 0.0);
+            for (size_t tN = 0; tN < threadCount; tN++)
+            {
+                threads.push_back(std::thread(singleThreadTestQNaive<BCRSMat, decltype(MultQSimpleNaiveQNaive<BCRSMat>)>, std::ref(laplacian), MultQSimpleNaiveQNaive<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], tN, std::ref(gFlops[tN]), entriesPerRow));
+            }
+            gFlopsAvg = 0.0;
+            for (size_t tN = 0; tN < threadCount; tN++)
+            {
+                threads[tN].join();
+                gFlopsAvg += gFlops[tN];
+            }
+            gFlopsAvg /= threadCount;
+            outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlopsAvg << "," << threadCount << ",\n";
+        }
+    }
+    outputFile.close();
+}
+
 int main(int argc, char const *argv[])
 {
     // Make a Block Matrix
@@ -317,8 +489,10 @@ int main(int argc, char const *argv[])
     singleThreadTest(laplacian, MultQSimpleNaive<BCRSMat>, N, rhsWidth, repetitions, threadNumber, gFlops, laplacianEPR);
     */
 
-    const std::string filename("matmulSimple_identity_gflops.csv");
+    // const std::string filename("matmulSimple_identity_gflops.csv");
     //autotest(identity, MultQSimple<BCRSMat>, filename, identityEPR);
+
+    /*
     std::cout << "Optimized Multiplication (identity): " << std::endl;
     autotestIdentity();
     std::cout << std::endl
@@ -333,5 +507,21 @@ int main(int argc, char const *argv[])
               << std::endl
               << "Naive Multiplication (laplacian): " << std::endl;
     autotestLaplacianNaive();
+    */
+    const size_t threadCount = 128;
+    std::cout << "Optimized Multiplication (identity, MT): " << std::endl;
+    autotestIdentityMT(threadCount);
+    std::cout << std::endl
+              << std::endl
+              << "Naive Multiplication (identity, MT): " << std::endl;
+    autotestIdentityNaiveMT(threadCount);
+    std::cout << std::endl
+              << std::endl
+              << "Optimized Multiplication (laplacian, MT): " << std::endl;
+    autotestLaplacianMT(threadCount);
+    std::cout << std::endl
+              << std::endl
+              << "Naive Multiplication (laplacian, MT): " << std::endl;
+    autotestLaplacianNaiveMT(threadCount);
     return 0;
 }
