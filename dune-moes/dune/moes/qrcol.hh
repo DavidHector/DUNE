@@ -28,6 +28,13 @@ void fillMatrixRandom(std::unique_ptr<double[]> &Q, size_t matrixSize)
         Q[i] = static_cast<double>(std::rand()) / RAND_MAX;
     }
 }
+void fillMatrixRandom(std::shared_ptr<double[]> &Q, size_t matrixSize)
+{
+    for (size_t i = 0; i < matrixSize; i++)
+    {
+        Q[i] = static_cast<double>(std::rand()) / RAND_MAX;
+    }
+}
 
 void printMatrix(double *Q, const size_t N, const size_t rhsWidth)
 {
@@ -1655,6 +1662,868 @@ void qrFixedBlockOptimizedDoubleUnsafe(double *Q, size_t numRows, size_t numCols
 }
 
 void qrFixedBlockOptimizedDouble(std::unique_ptr<double[]> &Q, size_t numRows, size_t numCols, size_t blockSize, size_t uBlockSize)
+{
+    Vec4d *norms = new Vec4d[2];
+    double currentNorm = 0.0;
+    Vec4d *dotProducts = new Vec4d[16];
+    double *udots = new double[8];
+    double ui = 0.0;
+    Vec4d u = 0.0;
+    Vec4d uNorm = 0.0;
+    Vec4d v = 0.0;
+    Vec4d uv = 0.0;
+    Vec4d v0 = 0.0;
+    Vec4d v1 = 0.0;
+    size_t index = 0;
+    size_t uindex = 0;
+    size_t vindex = 0;
+    Vec4d uiVec = 0.0;
+    Vec4d viVec = 0.0;
+    Vec4d uivi = 0.0;
+    Vec4d u0Vec = 0.0;
+    Vec4d u1Vec = 0.0;
+    Vec4d u2Vec = 0.0;
+    Vec4d u3Vec = 0.0;
+
+    // Here the matrix is still full
+    for (size_t col = 0; col < numCols; col++)
+    {
+        // orthogonalize current block
+        norms[0] = 0.0;
+        norms[1] = 0.0;
+
+        // 0th entry
+        udots[0] = 0.0;
+        udots[1] = 0.0;
+        udots[2] = 0.0;
+        udots[3] = 0.0;
+        udots[4] = 0.0;
+        udots[5] = 0.0;
+        udots[6] = 0.0;
+        udots[7] = 0.0;
+        uv = 0.0;
+        uindex = 8 * col * numRows + 0; // 8 because thats the width
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex];
+            udots[0] += ui * ui;
+            udots[1] += ui * Q[uindex + 1];
+            udots[2] += ui * Q[uindex + 2];
+            udots[3] += ui * Q[uindex + 3];
+            v.load(&Q[uindex + 4]);
+            uv += ui * v;
+            uv.store(&udots[4]);
+            uindex += 8;
+        }
+        norms[0].insert(0, udots[0]);
+        // linear combination
+        uindex = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 1] -= udots[1] / udots[0] * Q[uindex]; // + 0
+            Q[uindex + 2] -= udots[2] / udots[0] * Q[uindex];
+            Q[uindex + 3] -= udots[3] / udots[0] * Q[uindex];
+            uNorm = udots[0];
+            uiVec = Q[uindex];
+            uv.load(&udots[4]);
+            u.load(&Q[uindex + 4]);
+            u -= uv / uNorm * uiVec;
+            u.store(&Q[uindex + 4]);
+            uindex += 8;
+        }
+
+        // 1st entry
+        udots[1] = 0.0;
+        udots[2] = 0.0;
+        udots[3] = 0.0;
+        udots[4] = 0.0;
+        udots[5] = 0.0;
+        udots[6] = 0.0;
+        udots[7] = 0.0;
+        uv = 0.0;
+        uindex = 8 * col * numRows + 0; // +4 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 1];
+            udots[1] += ui * ui;
+            udots[2] += ui * Q[uindex + 2];
+            udots[3] += ui * Q[uindex + 3];
+            v.load(&Q[uindex + 4]);
+            uv += ui * v;
+            uv.store(&udots[4]);
+            uindex += 8;
+        }
+        norms[0].insert(1, udots[1]);
+        // linear combination
+        uindex = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 2] -= udots[2] / udots[1] * Q[uindex + 1];
+            Q[uindex + 3] -= udots[3] / udots[1] * Q[uindex + 1];
+            uNorm = udots[1];
+            uiVec = Q[uindex + 1];
+            uv.load(&udots[4]);
+            u.load(&Q[uindex + 4]);
+            u -= uv / uNorm * uiVec;
+            u.store(&Q[uindex + 4]);
+            uindex += 8;
+        }
+
+        // 2nd entry
+        udots[2] = 0.0;
+        udots[3] = 0.0;
+        udots[4] = 0.0;
+        udots[5] = 0.0;
+        udots[6] = 0.0;
+        udots[7] = 0.0;
+        uv = 0.0;
+        uindex = 8 * col * numRows + 0; // +1 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 2];
+            udots[2] += ui * ui;
+            udots[3] += ui * Q[uindex + 3];
+            v.load(&Q[uindex + 4]);
+            uv += ui * v;
+            uv.store(&udots[4]);
+            uindex += 8;
+        }
+        norms[0].insert(2, udots[2]);
+        // linear combination
+        uindex = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 3] -= udots[3] / udots[2] * Q[uindex + 2];
+            uNorm = udots[2];
+            uiVec = Q[uindex + 2];
+            uv.load(&udots[4]);
+            u.load(&Q[uindex + 4]);
+            u -= uv / uNorm * uiVec;
+            u.store(&Q[uindex + 4]);
+            uindex += 8;
+        }
+
+        // 3rd entry
+        udots[3] = 0.0;
+        udots[4] = 0.0;
+        udots[5] = 0.0;
+        udots[6] = 0.0;
+        udots[7] = 0.0;
+        uv = 0.0;
+        uindex = 8 * col * numRows; // +1 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 3];
+            udots[3] += ui * ui;
+            v.load(&Q[uindex + 4]);
+            uv += ui * v;
+            uv.store(&udots[4]);
+            uindex += 8;
+        }
+        norms[0].insert(3, udots[3]);
+        // linear combination
+        uindex = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            // Q[uindex] = {Q[uindex][0], Q[uindex][1], Q[uindex][2], Q[uindex][3]}; // dont need this anymore
+            uNorm = udots[3];
+            uiVec = Q[uindex + 3];
+            uv.load(&udots[4]);
+            u.load(&Q[uindex + 4]);
+            u -= uv / uNorm * uiVec;
+            u.store(&Q[uindex + 4]);
+            uindex += 8;
+        }
+
+        // 4th entry
+        udots[4] = 0.0;                 // 4
+        udots[5] = 0.0;                 // 5
+        udots[6] = 0.0;                 // 6
+        udots[7] = 0.0;                 // 7
+        uindex = 8 * col * numRows + 4; // +1 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex];
+            udots[4] += ui * ui;
+            udots[5] += ui * Q[uindex + 1];
+            udots[6] += ui * Q[uindex + 2];
+            udots[7] += ui * Q[uindex + 3];
+            uindex += 8;
+        }
+        norms[1].insert(0, udots[4]);
+        // linear combination
+        uindex = 8 * col * numRows + 4;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 1] -= udots[5] / udots[4] * Q[uindex];
+            Q[uindex + 2] -= udots[6] / udots[4] * Q[uindex];
+            Q[uindex + 3] -= udots[7] / udots[4] * Q[uindex];
+            uindex += 8;
+        }
+
+        // 5th entry
+        udots[5] = 0.0;                 // 5
+        udots[6] = 0.0;                 // 6
+        udots[7] = 0.0;                 // 7
+        uindex = 8 * col * numRows + 4; // +4 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 1];
+            udots[5] += ui * ui;
+            udots[6] += ui * Q[uindex + 2];
+            udots[7] += ui * Q[uindex + 3];
+            uindex += 8;
+        }
+        norms[1].insert(1, udots[5]);
+        // linear combination
+        uindex = 8 * col * numRows + 4;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 2] -= udots[6] / udots[5] * Q[uindex + 1];
+            Q[uindex + 3] -= udots[7] / udots[5] * Q[uindex + 1];
+            uindex += 8;
+        }
+
+        // 6th entry
+        udots[6] = 0.0;                 // 6
+        udots[7] = 0.0;                 // 7
+        uindex = 8 * col * numRows + 4; // +1 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 2];
+            udots[6] += ui * ui;
+            udots[7] += ui * Q[uindex + 3];
+            uindex += 8;
+        }
+        norms[1].insert(2, udots[6]);
+        // linear combination
+        uindex = 8 * col * numRows + 4;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 3] -= udots[7] / udots[6] * Q[uindex + 2];
+            uindex += 8;
+        }
+
+        // 7th entry, only have to do the norm
+        uindex = 8 * col * numRows + 4;
+        udots[7] = 0.0;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 3];
+            udots[7] += ui * ui;
+            uindex += 8;
+        }
+        norms[1].insert(3, udots[7]);
+
+        // normalize current block
+        index = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            u0Vec.load(&Q[index]);
+            u1Vec.load(&Q[index + 4]);
+            // index = col*2*numRows + 2*row;
+            u0Vec /= sqrt(norms[0]);
+            u1Vec /= sqrt(norms[1]);
+
+            u0Vec.store(&Q[index]);
+            u1Vec.store(&Q[index + 4]);
+            index += 8;
+        }
+        // end normalize current block
+
+        // orthogonalize following blocks
+        for (size_t i = 0; i < 16; i++)
+        {
+            dotProducts[i] = 0;
+        }
+        for (size_t folCol = col + 1; folCol < numCols; folCol++)
+        {
+            // get dotProducts
+            //initialize dotProducts;
+            dotProducts[0] = 0.0;
+            dotProducts[1] = 0.0;
+            dotProducts[2] = 0.0;
+            dotProducts[3] = 0.0;
+            dotProducts[4] = 0.0;
+            dotProducts[5] = 0.0;
+            dotProducts[6] = 0.0;
+            dotProducts[7] = 0.0;
+            dotProducts[8] = 0.0;
+            dotProducts[9] = 0.0;
+            dotProducts[10] = 0.0;
+            dotProducts[11] = 0.0;
+            dotProducts[12] = 0.0;
+            dotProducts[13] = 0.0;
+            dotProducts[14] = 0.0;
+            dotProducts[15] = 0.0;
+
+            // first uBlock
+            uindex = 8 * col * numRows;
+            vindex = 8 * folCol * numRows;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                // uindex = col*2*numRows + row*2 + 0; // first u block
+                // vindex = folCol*2*numRows + row*2 + 0; // first v block
+                u.load(&Q[uindex]);
+                v0.load(&Q[vindex]);
+                v1.load(&Q[vindex + 4]); // second vBlock
+                // broadcast
+                u0Vec = u[0];
+                u1Vec = u[1];
+                u2Vec = u[2];
+                u3Vec = u[3];
+
+                dotProducts[0] += u0Vec * v0;
+                dotProducts[1] += u1Vec * v0;
+                dotProducts[2] += u2Vec * v0;
+                dotProducts[3] += u3Vec * v0;
+
+                dotProducts[4] += u0Vec * v1;
+                dotProducts[5] += u1Vec * v1;
+                dotProducts[6] += u2Vec * v1;
+                dotProducts[7] += u3Vec * v1;
+                uindex += 8;
+                vindex += 8;
+            }
+
+            uindex = 8 * col * numRows + 4;
+            vindex = 8 * folCol * numRows;
+            // second uBlock
+            for (size_t row = 0; row < numRows; row++)
+            {
+                // uindex = col*2*numRows + row*2 + 1; // second u block
+                // vindex = folCol*2*numRows + row*2; // first v block
+                u.load(&Q[uindex]);
+                v0.load(&Q[vindex]);
+                v1.load(&Q[vindex + 4]); // second vBlock
+                // broadcast
+                u0Vec = u[0];
+                u1Vec = u[1];
+                u2Vec = u[2];
+                u3Vec = u[3];
+
+                dotProducts[8] += u0Vec * v0;
+                dotProducts[9] += u1Vec * v0;
+                dotProducts[10] += u2Vec * v0;
+                dotProducts[11] += u3Vec * v0;
+
+                dotProducts[12] += u0Vec * v1;
+                dotProducts[13] += u1Vec * v1;
+                dotProducts[14] += u2Vec * v1;
+                dotProducts[15] += u3Vec * v1;
+                uindex += 8;
+                vindex += 8;
+            }
+
+            // end dotproducts
+
+            // linear combination
+
+            // first uBlock
+            uindex = 8 * col * numRows;
+            vindex = 8 * folCol * numRows;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                // uindex = col*2*numRows + row*2 + 0; // first u block
+                // vindex = folCol*2*numRows + row*2 + 0; // first v block
+                u.load(&Q[uindex]);
+                v0.load(&Q[vindex]);
+                v1.load(&Q[vindex + 4]); // second vBlock
+                // broadcast
+                u0Vec = u[0];
+                u1Vec = u[1];
+                u2Vec = u[2];
+                u3Vec = u[3];
+
+                v0 -= dotProducts[0] * u0Vec + dotProducts[1] * u1Vec + dotProducts[2] * u2Vec + dotProducts[3] * u3Vec; // this should have -=
+                v1 -= dotProducts[4] * u0Vec + dotProducts[5] * u1Vec + dotProducts[6] * u2Vec + dotProducts[7] * u3Vec;
+
+                v0.store(&Q[vindex]);
+                v1.store(&Q[vindex + 4]);
+                uindex += 8;
+                vindex += 8;
+            }
+
+            // second uBlock
+            uindex = 8 * col * numRows + 4;
+            vindex = 8 * folCol * numRows;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                // uindex = col*2*numRows + row*2 + 1; // second u block
+                // vindex = folCol*2*numRows + row*2; // first v block
+                u.load(&Q[uindex]);
+                v0.load(&Q[vindex]);
+                v1.load(&Q[vindex + 4]);
+                // broadcast
+                u0Vec = u[0];
+                u1Vec = u[1];
+                u2Vec = u[2];
+                u3Vec = u[3];
+
+                v0 -= dotProducts[8] * u0Vec + dotProducts[9] * u1Vec + dotProducts[10] * u2Vec + dotProducts[11] * u3Vec;
+                v1 -= dotProducts[12] * u0Vec + dotProducts[13] * u1Vec + dotProducts[14] * u2Vec + dotProducts[15] * u3Vec;
+
+                v0.store(&Q[vindex]);
+                v1.store(&Q[vindex + 4]);
+                uindex += 8;
+                vindex += 8;
+            }
+
+            // end linear combination
+        }
+        // end orthogonalize following blocks
+    }
+    delete[] norms;
+    delete[] dotProducts;
+    delete[] udots;
+}
+
+void qrFixedBlockOptimizedDoubleUnique(std::unique_ptr<double[]> &Q, size_t numRows, size_t numCols, size_t blockSize, size_t uBlockSize)
+{
+    Vec4d *norms = new Vec4d[2];
+    double currentNorm = 0.0;
+    Vec4d *dotProducts = new Vec4d[16];
+    double *udots = new double[8];
+    double ui = 0.0;
+    Vec4d u = 0.0;
+    Vec4d uNorm = 0.0;
+    Vec4d v = 0.0;
+    Vec4d uv = 0.0;
+    Vec4d v0 = 0.0;
+    Vec4d v1 = 0.0;
+    size_t index = 0;
+    size_t uindex = 0;
+    size_t vindex = 0;
+    Vec4d uiVec = 0.0;
+    Vec4d viVec = 0.0;
+    Vec4d uivi = 0.0;
+    Vec4d u0Vec = 0.0;
+    Vec4d u1Vec = 0.0;
+    Vec4d u2Vec = 0.0;
+    Vec4d u3Vec = 0.0;
+
+    // Here the matrix is still full
+    for (size_t col = 0; col < numCols; col++)
+    {
+        // orthogonalize current block
+        norms[0] = 0.0;
+        norms[1] = 0.0;
+
+        // 0th entry
+        udots[0] = 0.0;
+        udots[1] = 0.0;
+        udots[2] = 0.0;
+        udots[3] = 0.0;
+        udots[4] = 0.0;
+        udots[5] = 0.0;
+        udots[6] = 0.0;
+        udots[7] = 0.0;
+        uv = 0.0;
+        uindex = 8 * col * numRows + 0; // 8 because thats the width
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex];
+            udots[0] += ui * ui;
+            udots[1] += ui * Q[uindex + 1];
+            udots[2] += ui * Q[uindex + 2];
+            udots[3] += ui * Q[uindex + 3];
+            v.load(&Q[uindex + 4]);
+            uv += ui * v;
+            uv.store(&udots[4]);
+            uindex += 8;
+        }
+        norms[0].insert(0, udots[0]);
+        // linear combination
+        uindex = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 1] -= udots[1] / udots[0] * Q[uindex]; // + 0
+            Q[uindex + 2] -= udots[2] / udots[0] * Q[uindex];
+            Q[uindex + 3] -= udots[3] / udots[0] * Q[uindex];
+            uNorm = udots[0];
+            uiVec = Q[uindex];
+            uv.load(&udots[4]);
+            u.load(&Q[uindex + 4]);
+            u -= uv / uNorm * uiVec;
+            u.store(&Q[uindex + 4]);
+            uindex += 8;
+        }
+
+        // 1st entry
+        udots[1] = 0.0;
+        udots[2] = 0.0;
+        udots[3] = 0.0;
+        udots[4] = 0.0;
+        udots[5] = 0.0;
+        udots[6] = 0.0;
+        udots[7] = 0.0;
+        uv = 0.0;
+        uindex = 8 * col * numRows + 0; // +4 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 1];
+            udots[1] += ui * ui;
+            udots[2] += ui * Q[uindex + 2];
+            udots[3] += ui * Q[uindex + 3];
+            v.load(&Q[uindex + 4]);
+            uv += ui * v;
+            uv.store(&udots[4]);
+            uindex += 8;
+        }
+        norms[0].insert(1, udots[1]);
+        // linear combination
+        uindex = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 2] -= udots[2] / udots[1] * Q[uindex + 1];
+            Q[uindex + 3] -= udots[3] / udots[1] * Q[uindex + 1];
+            uNorm = udots[1];
+            uiVec = Q[uindex + 1];
+            uv.load(&udots[4]);
+            u.load(&Q[uindex + 4]);
+            u -= uv / uNorm * uiVec;
+            u.store(&Q[uindex + 4]);
+            uindex += 8;
+        }
+
+        // 2nd entry
+        udots[2] = 0.0;
+        udots[3] = 0.0;
+        udots[4] = 0.0;
+        udots[5] = 0.0;
+        udots[6] = 0.0;
+        udots[7] = 0.0;
+        uv = 0.0;
+        uindex = 8 * col * numRows + 0; // +1 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 2];
+            udots[2] += ui * ui;
+            udots[3] += ui * Q[uindex + 3];
+            v.load(&Q[uindex + 4]);
+            uv += ui * v;
+            uv.store(&udots[4]);
+            uindex += 8;
+        }
+        norms[0].insert(2, udots[2]);
+        // linear combination
+        uindex = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 3] -= udots[3] / udots[2] * Q[uindex + 2];
+            uNorm = udots[2];
+            uiVec = Q[uindex + 2];
+            uv.load(&udots[4]);
+            u.load(&Q[uindex + 4]);
+            u -= uv / uNorm * uiVec;
+            u.store(&Q[uindex + 4]);
+            uindex += 8;
+        }
+
+        // 3rd entry
+        udots[3] = 0.0;
+        udots[4] = 0.0;
+        udots[5] = 0.0;
+        udots[6] = 0.0;
+        udots[7] = 0.0;
+        uv = 0.0;
+        uindex = 8 * col * numRows; // +1 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 3];
+            udots[3] += ui * ui;
+            v.load(&Q[uindex + 4]);
+            uv += ui * v;
+            uv.store(&udots[4]);
+            uindex += 8;
+        }
+        norms[0].insert(3, udots[3]);
+        // linear combination
+        uindex = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            // Q[uindex] = {Q[uindex][0], Q[uindex][1], Q[uindex][2], Q[uindex][3]}; // dont need this anymore
+            uNorm = udots[3];
+            uiVec = Q[uindex + 3];
+            uv.load(&udots[4]);
+            u.load(&Q[uindex + 4]);
+            u -= uv / uNorm * uiVec;
+            u.store(&Q[uindex + 4]);
+            uindex += 8;
+        }
+
+        // 4th entry
+        udots[4] = 0.0;                 // 4
+        udots[5] = 0.0;                 // 5
+        udots[6] = 0.0;                 // 6
+        udots[7] = 0.0;                 // 7
+        uindex = 8 * col * numRows + 4; // +1 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex];
+            udots[4] += ui * ui;
+            udots[5] += ui * Q[uindex + 1];
+            udots[6] += ui * Q[uindex + 2];
+            udots[7] += ui * Q[uindex + 3];
+            uindex += 8;
+        }
+        norms[1].insert(0, udots[4]);
+        // linear combination
+        uindex = 8 * col * numRows + 4;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 1] -= udots[5] / udots[4] * Q[uindex];
+            Q[uindex + 2] -= udots[6] / udots[4] * Q[uindex];
+            Q[uindex + 3] -= udots[7] / udots[4] * Q[uindex];
+            uindex += 8;
+        }
+
+        // 5th entry
+        udots[5] = 0.0;                 // 5
+        udots[6] = 0.0;                 // 6
+        udots[7] = 0.0;                 // 7
+        uindex = 8 * col * numRows + 4; // +4 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 1];
+            udots[5] += ui * ui;
+            udots[6] += ui * Q[uindex + 2];
+            udots[7] += ui * Q[uindex + 3];
+            uindex += 8;
+        }
+        norms[1].insert(1, udots[5]);
+        // linear combination
+        uindex = 8 * col * numRows + 4;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 2] -= udots[6] / udots[5] * Q[uindex + 1];
+            Q[uindex + 3] -= udots[7] / udots[5] * Q[uindex + 1];
+            uindex += 8;
+        }
+
+        // 6th entry
+        udots[6] = 0.0;                 // 6
+        udots[7] = 0.0;                 // 7
+        uindex = 8 * col * numRows + 4; // +1 would be the second 4-Block
+        // dot products
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 2];
+            udots[6] += ui * ui;
+            udots[7] += ui * Q[uindex + 3];
+            uindex += 8;
+        }
+        norms[1].insert(2, udots[6]);
+        // linear combination
+        uindex = 8 * col * numRows + 4;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            // avoid the insert
+            Q[uindex + 3] -= udots[7] / udots[6] * Q[uindex + 2];
+            uindex += 8;
+        }
+
+        // 7th entry, only have to do the norm
+        uindex = 8 * col * numRows + 4;
+        udots[7] = 0.0;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            ui = Q[uindex + 3];
+            udots[7] += ui * ui;
+            uindex += 8;
+        }
+        norms[1].insert(3, udots[7]);
+
+        // normalize current block
+        index = 8 * col * numRows;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            u0Vec.load(&Q[index]);
+            u1Vec.load(&Q[index + 4]);
+            // index = col*2*numRows + 2*row;
+            u0Vec /= sqrt(norms[0]);
+            u1Vec /= sqrt(norms[1]);
+
+            u0Vec.store(&Q[index]);
+            u1Vec.store(&Q[index + 4]);
+            index += 8;
+        }
+        // end normalize current block
+
+        // orthogonalize following blocks
+        for (size_t i = 0; i < 16; i++)
+        {
+            dotProducts[i] = 0;
+        }
+        for (size_t folCol = col + 1; folCol < numCols; folCol++)
+        {
+            // get dotProducts
+            //initialize dotProducts;
+            dotProducts[0] = 0.0;
+            dotProducts[1] = 0.0;
+            dotProducts[2] = 0.0;
+            dotProducts[3] = 0.0;
+            dotProducts[4] = 0.0;
+            dotProducts[5] = 0.0;
+            dotProducts[6] = 0.0;
+            dotProducts[7] = 0.0;
+            dotProducts[8] = 0.0;
+            dotProducts[9] = 0.0;
+            dotProducts[10] = 0.0;
+            dotProducts[11] = 0.0;
+            dotProducts[12] = 0.0;
+            dotProducts[13] = 0.0;
+            dotProducts[14] = 0.0;
+            dotProducts[15] = 0.0;
+
+            // first uBlock
+            uindex = 8 * col * numRows;
+            vindex = 8 * folCol * numRows;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                // uindex = col*2*numRows + row*2 + 0; // first u block
+                // vindex = folCol*2*numRows + row*2 + 0; // first v block
+                u.load(&Q[uindex]);
+                v0.load(&Q[vindex]);
+                v1.load(&Q[vindex + 4]); // second vBlock
+                // broadcast
+                u0Vec = u[0];
+                u1Vec = u[1];
+                u2Vec = u[2];
+                u3Vec = u[3];
+
+                dotProducts[0] += u0Vec * v0;
+                dotProducts[1] += u1Vec * v0;
+                dotProducts[2] += u2Vec * v0;
+                dotProducts[3] += u3Vec * v0;
+
+                dotProducts[4] += u0Vec * v1;
+                dotProducts[5] += u1Vec * v1;
+                dotProducts[6] += u2Vec * v1;
+                dotProducts[7] += u3Vec * v1;
+                uindex += 8;
+                vindex += 8;
+            }
+
+            uindex = 8 * col * numRows + 4;
+            vindex = 8 * folCol * numRows;
+            // second uBlock
+            for (size_t row = 0; row < numRows; row++)
+            {
+                // uindex = col*2*numRows + row*2 + 1; // second u block
+                // vindex = folCol*2*numRows + row*2; // first v block
+                u.load(&Q[uindex]);
+                v0.load(&Q[vindex]);
+                v1.load(&Q[vindex + 4]); // second vBlock
+                // broadcast
+                u0Vec = u[0];
+                u1Vec = u[1];
+                u2Vec = u[2];
+                u3Vec = u[3];
+
+                dotProducts[8] += u0Vec * v0;
+                dotProducts[9] += u1Vec * v0;
+                dotProducts[10] += u2Vec * v0;
+                dotProducts[11] += u3Vec * v0;
+
+                dotProducts[12] += u0Vec * v1;
+                dotProducts[13] += u1Vec * v1;
+                dotProducts[14] += u2Vec * v1;
+                dotProducts[15] += u3Vec * v1;
+                uindex += 8;
+                vindex += 8;
+            }
+
+            // end dotproducts
+
+            // linear combination
+
+            // first uBlock
+            uindex = 8 * col * numRows;
+            vindex = 8 * folCol * numRows;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                // uindex = col*2*numRows + row*2 + 0; // first u block
+                // vindex = folCol*2*numRows + row*2 + 0; // first v block
+                u.load(&Q[uindex]);
+                v0.load(&Q[vindex]);
+                v1.load(&Q[vindex + 4]); // second vBlock
+                // broadcast
+                u0Vec = u[0];
+                u1Vec = u[1];
+                u2Vec = u[2];
+                u3Vec = u[3];
+
+                v0 -= dotProducts[0] * u0Vec + dotProducts[1] * u1Vec + dotProducts[2] * u2Vec + dotProducts[3] * u3Vec; // this should have -=
+                v1 -= dotProducts[4] * u0Vec + dotProducts[5] * u1Vec + dotProducts[6] * u2Vec + dotProducts[7] * u3Vec;
+
+                v0.store(&Q[vindex]);
+                v1.store(&Q[vindex + 4]);
+                uindex += 8;
+                vindex += 8;
+            }
+
+            // second uBlock
+            uindex = 8 * col * numRows + 4;
+            vindex = 8 * folCol * numRows;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                // uindex = col*2*numRows + row*2 + 1; // second u block
+                // vindex = folCol*2*numRows + row*2; // first v block
+                u.load(&Q[uindex]);
+                v0.load(&Q[vindex]);
+                v1.load(&Q[vindex + 4]);
+                // broadcast
+                u0Vec = u[0];
+                u1Vec = u[1];
+                u2Vec = u[2];
+                u3Vec = u[3];
+
+                v0 -= dotProducts[8] * u0Vec + dotProducts[9] * u1Vec + dotProducts[10] * u2Vec + dotProducts[11] * u3Vec;
+                v1 -= dotProducts[12] * u0Vec + dotProducts[13] * u1Vec + dotProducts[14] * u2Vec + dotProducts[15] * u3Vec;
+
+                v0.store(&Q[vindex]);
+                v1.store(&Q[vindex + 4]);
+                uindex += 8;
+                vindex += 8;
+            }
+
+            // end linear combination
+        }
+        // end orthogonalize following blocks
+    }
+    delete[] norms;
+    delete[] dotProducts;
+    delete[] udots;
+}
+
+void qrFixedBlockOptimizedDouble(std::shared_ptr<double[]> &Q, size_t numRows, size_t numCols, size_t blockSize, size_t uBlockSize)
 {
     Vec4d *norms = new Vec4d[2];
     double currentNorm = 0.0;

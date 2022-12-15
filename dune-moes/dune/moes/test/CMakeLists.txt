@@ -7,3 +7,4 @@
 add_executable(qrcoltest qrcoltest.cc)
 add_executable(matmultest matmultest.cc)
 add_executable(largestEigenvalues largestEigenvalues.cc)
+add_executable(umfTest umfTest.cc)

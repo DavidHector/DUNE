@@ -9,6 +9,7 @@
 #include <type_traits>
 
 #include <umfpack.h>
+#include <dune/moes/Utils.hh>
 
 #include <dune/common/exceptions.hh>
 #include <dune/common/fmatrix.hh>
@@ -41,7 +42,7 @@ namespace Dune
     /**
    * @file
    * @author David Hector (adapted from umfpack.hh by Dominic Kempf)
-   * @brief Classes for using UMFPack with MOES data structures and matrices.
+   * @brief Classes for using UMFPackMOES with MOES data structures and matrices.
    */
 
     // FORWARD DECLARATIONS
@@ -94,6 +95,7 @@ namespace Dune
         {
             return umfpack_dl_get_numeric(args...);
         }
+        template <typename... A>
         static int get_lunz(A... args)
         {
             return umfpack_dl_get_lunz(args...);
@@ -155,10 +157,12 @@ namespace Dune
         {
             umfpack_zl_numeric(cs, ri, val, NULL, args...);
         }
+        template <typename... A>
         static int get_numeric(A... args)
         {
             return umfpack_zl_get_numeric(args...);
         }
+        template <typename... A>
         static int get_lunz(A... args)
         {
             return umfpack_zl_get_lunz(args...);
@@ -221,21 +225,21 @@ namespace Dune
         };
     }
 
-    /** @brief The %UMFPack direct sparse solver
+    /** @brief The %UMFPackMOES direct sparse solver
    *
-   * Details on UMFPack can be found on
+   * Details on UMFPackMOES can be found on
    * http://www.cise.ufl.edu/research/sparse/umfpack/
    *
-   * %UMFPack will always use double precision.
+   * %UMFPackMOES will always use double precision.
    * For complex matrices use a matrix type with std::complex<double>
    * as the underlying number type.
    *
    * \tparam Matrix the matrix type defining the system
    *
-   * \note This will only work if dune-istl has been configured to use UMFPack
+   * \note This will only work if dune-istl has been configured to use UMFPackMOES
    */
     template <typename M>
-    class UMFPack
+    class UMFPackMOES
         : public InverseOperator<
               typename Impl::UMFPackVectorChooser<M>::domain_type,
               typename Impl::UMFPackVectorChooser<M>::range_type>
@@ -246,7 +250,7 @@ namespace Dune
         /** @brief The matrix type. */
         using Matrix = M;
         using matrix_type = M;
-        /** @brief The corresponding UMFPack matrix type.*/
+        /** @brief The corresponding UMFPackMOES matrix type.*/
         typedef ISTL::Impl::BCCSMatrix<typename Matrix::field_type, long int> UMFPackMatrix;
         /** @brief Type of an associated initializer class. */
         typedef ISTL::Impl::BCCSMatrixInitializer<M, long int> MatrixInitializer;
@@ -269,11 +273,11 @@ namespace Dune
      *  @param matrix the matrix to solve for
      *  @param verbose [0..2] set the verbosity level, defaults to 0
      */
-        UMFPack(const Matrix &matrix, int verbose = 0) : matrixIsLoaded_(false)
+        UMFPackMOES(const Matrix &matrix, int verbose = 0) : matrixIsLoaded_(false)
         {
             //check whether T is a supported type
             static_assert((std::is_same<T, double>::value) || (std::is_same<T, std::complex<double>>::value),
-                          "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
+                          "Unsupported Type in UMFPackMOES (only double and std::complex<double> supported)");
             Caller::defaults(UMF_Control);
             setVerbosity(verbose);
             setMatrix(matrix);
@@ -287,11 +291,11 @@ namespace Dune
      * @param matrix the matrix to solve for
      * @param verbose [0..2] set the verbosity level, defaults to 0
      */
-        UMFPack(const Matrix &matrix, int verbose, bool) : matrixIsLoaded_(false)
+        UMFPackMOES(const Matrix &matrix, int verbose, bool) : matrixIsLoaded_(false)
         {
             //check whether T is a supported type
             static_assert((std::is_same<T, double>::value) || (std::is_same<T, std::complex<double>>::value),
-                          "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
+                          "Unsupported Type in UMFPackMOES (only double and std::complex<double> supported)");
             Caller::defaults(UMF_Control);
             setVerbosity(verbose);
             setMatrix(matrix);
@@ -306,18 +310,18 @@ namespace Dune
      * ------------------|------------
      * verbose           | The verbosity level. default=0
     */
-        UMFPack(const Matrix &mat_, const ParameterTree &config)
-            : UMFPack(mat_, config.get<int>("verbose", 0))
+        UMFPackMOES(const Matrix &mat_, const ParameterTree &config)
+            : UMFPackMOES(mat_, config.get<int>("verbose", 0))
         {
         }
 
         /** @brief default constructor
      */
-        UMFPack() : matrixIsLoaded_(false), verbosity_(0)
+        UMFPackMOES() : matrixIsLoaded_(false), verbosity_(0)
         {
             //check whether T is a supported type
             static_assert((std::is_same<T, double>::value) || (std::is_same<T, std::complex<double>>::value),
-                          "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
+                          "Unsupported Type in UMFPackMOES (only double and std::complex<double> supported)");
             Caller::defaults(UMF_Control);
         }
 
@@ -331,11 +335,11 @@ namespace Dune
      * Thus, if you always use this you will only compute the decomposition once (and when you manually
      * deleted the decomposition file).
      */
-        UMFPack(const Matrix &mat_, const char *file, int verbose = 0)
+        UMFPackMOES(const Matrix &mat_, const char *file, int verbose = 0)
         {
             //check whether T is a supported type
             static_assert((std::is_same<T, double>::value) || (std::is_same<T, std::complex<double>>::value),
-                          "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
+                          "Unsupported Type in UMFPackMOES (only double and std::complex<double> supported)");
             Caller::defaults(UMF_Control);
             setVerbosity(verbose);
             int errcode = Caller::load_numeric(&UMF_Numeric, const_cast<char *>(file));
@@ -348,7 +352,7 @@ namespace Dune
             else
             {
                 matrixIsLoaded_ = true;
-                std::cout << "UMFPack decomposition successfully loaded from " << file << std::endl;
+                std::cout << "UMFPackMOES decomposition successfully loaded from " << file << std::endl;
             }
         }
 
@@ -358,23 +362,23 @@ namespace Dune
      * @throws Dune::Exception When not being able to load the file. Does not need knowledge of the
      * actual matrix!
      */
-        UMFPack(const char *file, int verbose = 0)
+        UMFPackMOES(const char *file, int verbose = 0)
         {
             //check whether T is a supported type
             static_assert((std::is_same<T, double>::value) || (std::is_same<T, std::complex<double>>::value),
-                          "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
+                          "Unsupported Type in UMFPackMOES (only double and std::complex<double> supported)");
             Caller::defaults(UMF_Control);
             int errcode = Caller::load_numeric(&UMF_Numeric, const_cast<char *>(file));
             if (errcode == UMFPACK_ERROR_out_of_memory)
-                DUNE_THROW(Dune::Exception, "ran out of memory while loading UMFPack decomposition");
+                DUNE_THROW(Dune::Exception, "ran out of memory while loading UMFPackMOES decomposition");
             if (errcode == UMFPACK_ERROR_file_IO)
-                DUNE_THROW(Dune::Exception, "IO error while loading UMFPack decomposition");
+                DUNE_THROW(Dune::Exception, "IO error while loading UMFPackMOES decomposition");
             matrixIsLoaded_ = true;
-            std::cout << "UMFPack decomposition successfully loaded from " << file << std::endl;
+            std::cout << "UMFPackMOES decomposition successfully loaded from " << file << std::endl;
             setVerbosity(verbose);
         }
 
-        virtual ~UMFPack()
+        virtual ~UMFPackMOES()
         {
             if ((umfpackMatrix_.N() + umfpackMatrix_.M() > 0) || matrixIsLoaded_)
                 free();
@@ -441,46 +445,65 @@ namespace Dune
         }
 
         /** 
-         * @brief apply method for use with moes own multivectors
-         * @param Qin rhs Multivector
-         * @param Qout solution Multivector
+         * @brief Ax = b solved via LU decomposition for use with moes own multivectors
+         * @param b rhs Multivector
+         * @param x solution Multivector
         */
-        void moesApply(const std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout)
+        void moesInversePowerIteration(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, std::shared_ptr<double[]> &xTmp, const size_t N, const size_t rhsWidth)
         {
-            // TODO: Find out how Umfpack does the solve and then do it on my own
+
+            // do_recip is a return value that tells me if the values in the diagonal matrix R are divided by or multiplied by
+
+            size_t qCols = rhsWidth / 8;
+            //std::shared_ptr<double[]> xTmp(new double[N * rhsWidth]); // since b needs to stay constant and we need to store intermediate results
             /*
-                Relevant files: umf_solve.c, umf_lsolve.c, umf_usolve.c 
-                UMFPACK_A = 0, Ax = b, solve for x
-                // The only actual input is UMF_Numeric which is calculated by decompose and in turn by setMatrix
-                do_recip is a return value that tells me if the factors are divided by or multiplied by
-            */
-            int64_t lnz, unz, n_row, n_col, nz_udiag, do_recip;
-            int status;
-            status = Caller::get_lunz(&lnz, &unz, &n_row, &n_col, &nz_udiag,
-                                      UMF_Numeric);
-            // allocate and initialize Arrays
-            std::unique_ptr<int64_t[]> Lp(new int64_t[n_row + 1]);
-            std::unique_ptr<int64_t[]> Lj(new int64_t[lnz]);
-            std::unique_ptr<double[]> Lx(new double[lnz]);
-            std::unique_ptr<int64_t[]> Up(new int64_t[n_col + 1]);
-            std::unique_ptr<int64_t[]> Ui(new int64_t[lnz]);
-            std::unique_ptr<double[]> Ux(new double[lnz]);
-            std::unique_ptr<int64_t[]> P(new int64_t[n_row]);
-            std::unique_ptr<int64_t[]> Q(new int64_t[n_col]);
-            std::unique_ptr<double[]> Dx(new double[std::min(n_row, n_col)]);
-            std::unique_ptr<double[]> Rs(new double[n_row]);
+            
             // L is n_row x min(n_row, n_col)
             // U is min(n_row, n_col) x n_col
-            status = Caller::get_numeric(Lp, Lj, Lx, Up, Ui, Ux, P, Q, Dx,
-                                         &do_recip, Rs, UMF_Numeric);
-            // Here I have to put in my solver, i.e., solve PAQ = LU and Ax = b
+            //  PAQ=LU, PRAQ=LU, or P(R\A)Q=LU=PR^{-1} A Q
+            // Since the arrays above stay the same for the power iteration, I should probably do the power iteration below, or move this stuff to the initialization
+            // Here I have to put in my solver, i.e., solve PRAQ = LU and Ax = b
+            // Note: P^-1 = P^T (property of the permutation matrix)
+            // Therefore: A = R^{-1} P^{-1} LU Q^{-1}. We can calculate the subproblems as follows:
+            
+            */
+            // s = Rb with s = P^{-1} LU Q^{-1} x
+            // here: x = s, b = b
+            applyScaling(b, x, Rs, N, qCols, do_recip);
+            // t = P s with t = LU Q^{-1} x
+            // here: x = s, xTmp = t
+            applyPivotP(x, xTmp, P, N, qCols); // This is a row pivot
+            // solve Lu = t with u = U Q^{-1} x
+            // here: xTmp = t, x = u
+            solveL(xTmp, x, Lp, Lj, Lx, n_row, qCols);
+            // U v = u with v = Q^{-1} x
+            // here: x = u, xTmp = v
+            solveU(x, xTmp, Up, Ui, Ux, n_col, qCols);
+            // Solve x = Qv
+            // here: xTmp = v, x = x
+            applyPivotQ(xTmp, x, Q, N, qCols); // This is a column pivot
+            // Normalize x
+            normalize(x, N, qCols);
+
+            /*
+            delete[] Lp;
+            delete[] Lj;
+            delete[] Lx;
+            delete[] Up;
+            delete[] Ui;
+            delete[] Ux;
+            delete[] P;
+            delete[] Q;
+            delete[] Dx;
+            delete[] Rs;
+            */
         }
 
-        /** @brief Set UMFPack-specific options
+        /** @brief Set UMFPackMOES-specific options
      *
-     * This method allows to set various options that control the UMFPack solver.
+     * This method allows to set various options that control the UMFPackMOES solver.
      * More specifically, it allows to set values in the UMF_Control array.
-     * Please see the UMFPack documentation for a list of possible options and values.
+     * Please see the UMFPackMOES documentation for a list of possible options and values.
      *
      * \param option Entry in the UMF_Control array, e.g., UMFPACK_IRSTEP
      * \param value Corresponding value
@@ -490,7 +513,7 @@ namespace Dune
         void setOption(unsigned int option, double value)
         {
             if (option >= UMFPACK_CONTROL)
-                DUNE_THROW(RangeError, "Requested non-existing UMFPack option");
+                DUNE_THROW(RangeError, "Requested non-existing UMFPackMOES option");
 
             UMF_Control[option] = value;
         }
@@ -502,7 +525,7 @@ namespace Dune
         {
             int errcode = Caller::save_numeric(UMF_Numeric, const_cast<char *>(file));
             if (errcode != UMFPACK_OK)
-                DUNE_THROW(Dune::Exception, "IO ERROR while trying to save UMFPack decomposition");
+                DUNE_THROW(Dune::Exception, "IO ERROR while trying to save UMFPackMOES decomposition");
         }
 
         /** @brief Initialize data from given matrix. */
@@ -542,7 +565,7 @@ namespace Dune
             decompose();
         }
 
-        /** @brief sets the verbosity level for the UMFPack solver
+        /** @brief sets the verbosity level for the UMFPackMOES solver
      * @param v verbosity level
      * The following levels are implemented:
      * 0 - only error messages
@@ -552,7 +575,7 @@ namespace Dune
         void setVerbosity(int v)
         {
             verbosity_ = v;
-            // set the verbosity level in UMFPack
+            // set the verbosity level in UMFPackMOES
             if (verbosity_ == 0)
                 UMF_Control[UMFPACK_PRL] = 1;
             if (verbosity_ == 1)
@@ -571,7 +594,7 @@ namespace Dune
         }
 
         /**
-     * @brief Return the column compress matrix from UMFPack.
+     * @brief Return the column compress matrix from UMFPackMOES.
      * @warning It is up to the user to keep consistency.
      */
         UMFPackMatrix &getInternalMatrix()
@@ -592,6 +615,16 @@ namespace Dune
             }
             Caller::free_numeric(&UMF_Numeric);
             matrixIsLoaded_ = false;
+            delete[] Lp;
+            delete[] Lj;
+            delete[] Lx;
+            delete[] Up;
+            delete[] Ui;
+            delete[] Ux;
+            delete[] P;
+            delete[] Q;
+            delete[] Dx;
+            delete[] Rs;
         }
 
         const char *name() { return "UMFPACK"; }
@@ -601,7 +634,7 @@ namespace Dune
 
         template <class Mat, class X, class TM, class TD, class T1>
         friend class SeqOverlappingSchwarz;
-        friend struct SeqOverlappingSchwarzAssemblerHelper<UMFPack<Matrix>, true>;
+        friend struct SeqOverlappingSchwarzAssemblerHelper<UMFPackMOES<Matrix>, true>;
 
         /** @brief computes the LU Decomposition */
         void decompose()
@@ -625,7 +658,7 @@ namespace Dune
             Caller::report_status(UMF_Control, UMF_Decomposition_Info[UMFPACK_STATUS]);
             if (verbosity_ == 1)
             {
-                std::cout << "[UMFPack Decomposition]" << std::endl;
+                std::cout << "[UMFPackMOES Decomposition]" << std::endl;
                 std::cout << "Wallclock Time taken: " << UMF_Decomposition_Info[UMFPACK_NUMERIC_WALLTIME] << " (CPU Time: " << UMF_Decomposition_Info[UMFPACK_NUMERIC_TIME] << ")" << std::endl;
                 std::cout << "Flops taken: " << UMF_Decomposition_Info[UMFPACK_FLOPS] << std::endl;
                 std::cout << "Peak Memory Usage: " << UMF_Decomposition_Info[UMFPACK_PEAK_MEMORY] * UMF_Decomposition_Info[UMFPACK_SIZE_OF_UNIT] << " bytes" << std::endl;
@@ -636,6 +669,22 @@ namespace Dune
             {
                 Caller::report_info(UMF_Control, UMF_Decomposition_Info);
             }
+            int status;
+
+            status = Caller::get_lunz(&lnz, &unz, &n_row, &n_col, &nz_udiag,
+                                      UMF_Numeric);
+            Lp = new int64_t[n_row + 1];
+            Lj = new int64_t[lnz];
+            Lx = new double[lnz];
+            Up = new int64_t[n_col + 1];
+            Ui = new int64_t[lnz];
+            Ux = new double[lnz];
+            P = new int64_t[n_row];
+            Q = new int64_t[n_col];
+            Dx = new double[std::min(n_row, n_col)];
+            Rs = new double[n_row];
+            status = Caller::get_numeric(Lp, Lj, Lx, Up, Ui, Ux, P, Q, Dx,
+                                         &do_recip, Rs, UMF_Numeric);
         }
 
         void printOnApply(double *UMF_Info)
@@ -643,7 +692,7 @@ namespace Dune
             Caller::report_status(UMF_Control, UMF_Info[UMFPACK_STATUS]);
             if (verbosity_ > 0)
             {
-                std::cout << "[UMFPack Solve]" << std::endl;
+                std::cout << "[UMFPackMOES Solve]" << std::endl;
                 std::cout << "Wallclock Time: " << UMF_Info[UMFPACK_SOLVE_WALLTIME] << " (CPU Time: " << UMF_Info[UMFPACK_SOLVE_TIME] << ")" << std::endl;
                 std::cout << "Flops Taken: " << UMF_Info[UMFPACK_SOLVE_FLOPS] << std::endl;
                 std::cout << "Iterative Refinement steps taken: " << UMF_Info[UMFPACK_IR_TAKEN] << std::endl;
@@ -656,11 +705,15 @@ namespace Dune
         int verbosity_;
         void *UMF_Symbolic;
         void *UMF_Numeric;
+        int64_t lnz, unz, n_row, n_col, nz_udiag, do_recip;
+        int64_t *Lp, *Lj, *Up, *Ui, *P, *Q;
+        double *Lx, *Ux, *Dx, *Rs;
         double UMF_Control[UMFPACK_CONTROL];
+        // Add the proper things here
     };
 
     template <typename T, typename A, int n, int m>
-    struct IsDirectSolver<UMFPack<BCRSMatrix<FieldMatrix<T, n, m>, A>>>
+    struct IsDirectSolver<UMFPackMOES<BCRSMatrix<FieldMatrix<T, n, m>, A>>>
     {
         enum
         {
@@ -669,7 +722,7 @@ namespace Dune
     };
 
     template <typename T, typename A>
-    struct StoresColumnCompressed<UMFPack<BCRSMatrix<T, A>>>
+    struct StoresColumnCompressed<UMFPackMOES<BCRSMatrix<T, A>>>
     {
         enum
         {
@@ -696,10 +749,10 @@ namespace Dune
                        isValidBlock<typename Dune::TypeListElement<1, TL>::type::block_type>::value, int> = 0) const
         {
             int verbose = config.get("verbose", 0);
-            return std::make_shared<Dune::UMFPack<M>>(mat, verbose);
+            return std::make_shared<Dune::UMFPackMOES<M>>(mat, verbose);
         }
 
-        // second version with SFINAE to validate the template parameters of UMFPack
+        // second version with SFINAE to validate the template parameters of UMFPackMOES
         template <typename TL, typename M>
         std::shared_ptr<Dune::InverseOperator<typename Dune::TypeListElement<1, TL>::type,
                                               typename Dune::TypeListElement<2, TL>::type>>
@@ -708,7 +761,7 @@ namespace Dune
                        !isValidBlock<typename Dune::TypeListElement<1, TL>::type::block_type>::value, int> = 0) const
         {
             DUNE_THROW(UnsupportedType,
-                       "Unsupported Type in UMFPack (only double and std::complex<double> supported)");
+                       "Unsupported Type in UMFPackMOES (only double and std::complex<double> supported)");
         }
     };
     DUNE_REGISTER_DIRECT_SOLVER("umfpack", Dune::UMFPackCreator());

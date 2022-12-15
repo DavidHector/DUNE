@@ -110,7 +110,7 @@ void singleThreadTest(size_t N, size_t rhsWidth, size_t repetitions, const doubl
     // double *Qdouble = new double[matrixSizeDouble];
     std::unique_ptr<double[]> Qdouble(new double[matrixSizeDouble]);
     fillMatrixRandom(Qdouble, matrixSizeDouble);
-    getGFLOPSqr(Qdouble, qrFixedBlockOptimizedDouble, flopsQR, N, rhsWidth, repetitions, gFlops, threadNumber);
+    getGFLOPSqr(Qdouble, qrFixedBlockOptimizedDoubleUnique, flopsQR, N, rhsWidth, repetitions, gFlops, threadNumber);
     checkOrthoNormalityFixed(Qdouble, N, rhsWidth / 8, tolerance);
     // printMatrix(Qdouble, N, rhsWidth);
     // delete[] Qdouble;

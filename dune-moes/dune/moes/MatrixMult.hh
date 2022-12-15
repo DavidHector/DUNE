@@ -142,9 +142,79 @@ void MultQ(MT &M, const double *Qin, double *Qout, const size_t qCols, const siz
     Matrix multiplication with double Q 
     This simplified Multiplication assumes that the Matrix consists of 1x1 submatrices
     Uses Vec4d for vectorization
+    I dunno, maybe reordering, so the qCol loop is outside, maybe reducing the index calcs?
 */
 template <typename MT>
-void MultQSimple(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, const size_t qCols, const size_t N)
+void MultQSimple(const MT &M, const std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, const size_t qCols, const size_t N)
+{
+    Vec4d productFirst, productSecond, inFirst, inSecond, outFirst, outSecond, entryM;
+    size_t qinIndex, qoutIndex;
+    auto endRow = M.end();
+    for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+    {
+        auto endCol = (*rowIterator).end();
+        auto rowMatrix = rowIterator.index(); // Matrix Block Row Index
+        for (size_t qCol = 0; qCol < qCols; qCol++)
+        {
+            qoutIndex = 8 * N * qCol + rowMatrix * 8;
+            productFirst = 0.0;
+            productSecond = 0.0;
+            for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
+            {
+                auto colMatrix = colIterator.index();
+                qinIndex = 8 * N * qCol + 8 * colMatrix;
+                inFirst.load(&Qin[qinIndex]);
+                inSecond.load(&Qin[qinIndex + 4]);
+                entryM = (*colIterator)[0][0];
+                productFirst += entryM * inFirst;
+                productSecond += entryM * inSecond;
+            }
+            productFirst.store(&Qout[qoutIndex]);
+            productSecond.store(&Qout[qoutIndex + 4]);
+        }
+    }
+}
+
+template <typename MT>
+void MultQSimpleUnique(const MT &M, const std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, const size_t qCols, const size_t N)
+{
+    Vec4d productFirst, productSecond, inFirst, inSecond, outFirst, outSecond, entryM;
+    size_t qinIndex, qoutIndex, vectorStart;
+    // pull initalization out of loop
+    // How to make this faster? Take the qCol loop outside? Why would that make it faster
+    auto endRow = M.end();
+    auto endCol = (*(M.begin())).end();
+    auto rowMatrix = M.begin().index();
+    auto colMatrix = endCol.index();
+
+    for (size_t qCol = 0; qCol < qCols; qCol++)
+    {
+        vectorStart = 8 * N * qCol;
+        for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+        {
+            endCol = (*rowIterator).end();
+            rowMatrix = rowIterator.index(); // Matrix Block Row Index
+            qoutIndex = vectorStart + 8 * rowMatrix;
+            productFirst = 0.0;
+            productSecond = 0.0;
+            for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
+            {
+                colMatrix = colIterator.index();
+                qinIndex = vectorStart + 8 * colMatrix;
+                inFirst.load(&Qin[qinIndex]);
+                inSecond.load(&Qin[qinIndex + 4]);
+                entryM = (*colIterator)[0][0];
+                productFirst += entryM * inFirst;
+                productSecond += entryM * inSecond;
+            }
+            productFirst.store(&Qout[qoutIndex]);
+            productSecond.store(&Qout[qoutIndex + 4]);
+        }
+    }
+}
+
+template <typename MT>
+void MultQSimple(const MT &M, const std::shared_ptr<double[]> &Qin, std::shared_ptr<double[]> &Qout, const size_t qCols, const size_t N)
 {
     Vec4d productFirst, productSecond, inFirst, inSecond, outFirst, outSecond, entryM;
     size_t qinIndex, qoutIndex;
@@ -235,6 +305,7 @@ void powerIteration(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr
     {
         normFirst.load(&norms[8 * qCol]);
         normSecond.load(&norms[8 * qCol + 4]);
+        // Should probably do the sqrt before and not inside the loop
         for (size_t qRow = 0; qRow < N; qRow++)
         {
             inFirst.load(&Qout[qoutIndex]);
@@ -290,7 +361,7 @@ void MultQSimpleNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_p
     No vectorization
 */
 template <typename MT>
-void MultQSimpleNaiveQNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, size_t qCols, size_t N)
+void MultQSimpleNaiveQNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, size_t rhsWidth, size_t N)
 {
     double product, entryM;
     size_t qinIndex, qoutIndex;
@@ -299,7 +370,7 @@ void MultQSimpleNaiveQNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::un
     {
         auto endCol = (*rowIterator).end();
         auto rowMatrix = rowIterator.index();
-        for (size_t qCol = 0; qCol < qCols; qCol++)
+        for (size_t qCol = 0; qCol < rhsWidth; qCol++)
         {
             qoutIndex = N * qCol + rowMatrix;
             product = 0.0;

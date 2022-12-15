@@ -16,9 +16,9 @@
 std::mutex printMutex;
 
 // This is not so easy to get
-double flopsMatmul(const size_t populatedRows, const size_t populatedColsPerRow, const size_t &W)
+double flopsMatmul(const size_t N, const size_t populatedColsPerRow, const size_t &W)
 {
-    return (2 * populatedColsPerRow - 1) * populatedRows * W;
+    return N * (2 * populatedColsPerRow - 1) * W;
 }
 
 void checkEquality(Vec4d *Qold, Vec4d *Qnew, int matrixSize)
@@ -176,7 +176,7 @@ void autotestIdentity()
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
             BCRSMat identity;
             setupIdentity(identity, Ns[i] / BS);
-            singleThreadTest(identity, MultQSimple<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], threadNumber, gFlops, entriesPerRow);
+            singleThreadTest(identity, MultQSimpleUnique<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], threadNumber, gFlops, entriesPerRow);
             outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlops << ",\n";
         }
     }
@@ -238,7 +238,7 @@ void autotestLaplacian()
             typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
             BCRSMat laplacian;
             setupLaplacian(laplacian, std::sqrt(Ns[i]));
-            singleThreadTest(laplacian, MultQSimple<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], threadNumber, gFlops, entriesPerRow);
+            singleThreadTest(laplacian, MultQSimpleUnique<BCRSMat>, Ns[i], rhsWidths[j], repetitions[i], threadNumber, gFlops, entriesPerRow);
             outputFile << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gFlops << ",\n";
         }
     }

@@ -5,6 +5,23 @@
 #include <dune/moes/qrcol.hh>
 #include <dune/moes/vectorclass/vectorclass.h>
 #include <vector>
+#include <dune/moes/umfpackMoes.hh>
+
+void printMultivector(std::shared_ptr<double[]> &x, const size_t N, const size_t qCols, const size_t col)
+{
+    size_t qCol = col / 8;
+    size_t intraCol = col % 8;
+    size_t xIndex = 8 * N * qCol + intraCol;
+    std::cout << std::endl;
+    std::cout << "x = [";
+    for (size_t i = 0; i < N - 1; i++)
+    {
+        std::cout << x[xIndex] << ", ";
+        xIndex += 8;
+    }
+    std::cout << x[xIndex];
+    std::cout << "]" << std::endl;
+}
 
 /*
     Checks, whether the sum of absolute differences between vector elements between iterations is lower than the given tolerance.
@@ -119,32 +136,39 @@ void largestEVsIterative(const MT &M, std::unique_ptr<double[]> &Q, const size_t
         // Call QR Algorithm and check tolerance
         if (i % qrFrequency == 0)
         {
-            qrFixedBlockOptimizedDouble(Q, N, qCols, 2, 1);
+            qrFixedBlockOptimizedDouble(Qtmp, N, qCols, 2, 1);
         }
     }
+    qrFixedBlockOptimizedDouble(Q, N, qCols, 2, 1);
     return;
 }
 
 template <typename MT>
-void smallestEVsIterative(const MT &M, std::unique_ptr<double[]> &Q, const size_t qCols, const size_t N, const size_t iterations, const size_t qrFrequency)
+void smallestEVsIterative(const MT &M, std::shared_ptr<double[]> &Q, const size_t qCols, const size_t N, const size_t iterations, const size_t qrFrequency)
 {
     bool stop = false;
     size_t matrixSize = N * qCols * 8; // watch out, overflow error might occur, 8 because of col width
-    std::unique_ptr<double[]> Qtmp(new double[matrixSize]);
+    size_t rhsWidth = qCols * 8;
+    std::shared_ptr<double[]> Qtmp(new double[matrixSize]);
+    std::shared_ptr<double[]> xtmp(new double[matrixSize]);
+    // Have to build stuff like the solver and then apply it later
     fillMatrixRandom(Qtmp, matrixSize);
-    inversePowerIteration(M, Qtmp, Q, qCols, N);
+    auto solver = std::make_shared<Dune::UMFPackMOES<MT>>(M, true);
+    solver->moesInversePowerIteration(Qtmp, Q, xtmp, N, rhsWidth);
     for (size_t i = 0; i < iterations; i++)
     {
-        inversePowerIteration(M, Qtmp, Q, qCols, N);
+        solver->moesInversePowerIteration(Qtmp, Q, xtmp, N, rhsWidth); // Why is n_col different here?
         // Why do the pointer swap, I could just do two multiplications in each step
-        inversePowerIteration(M, Q, Qtmp, qCols, N);
+        solver->moesInversePowerIteration(Q, Qtmp, xtmp, N, rhsWidth);
+        //printMultivector(Q, N, qCols, 5);
 
         // Call QR Algorithm and check tolerance
         if (i % qrFrequency == 0)
         {
-            qrFixedBlockOptimizedDouble(Q, N, qCols, 2, 1);
+            qrFixedBlockOptimizedDouble(Qtmp, N, qCols, 2, 1);
         }
     }
+    qrFixedBlockOptimizedDouble(Q, N, qCols, 2, 1);
     return;
 }
 
@@ -153,10 +177,41 @@ void smallestEVsIterative(const MT &M, std::unique_ptr<double[]> &Q, const size_
     gets EVs by using the \mu_k = \frac{b_k^\ast A b_k}{b_k^\ast b_k} Rayleigh-Quotient
 */
 template <typename MT>
-void getEigenvalues(const MT &M, std::unique_ptr<double[]> &Q, const size_t qCols, const size_t N, std::vector<double> &EVs)
+void getEigenvalues(const MT &M, const std::unique_ptr<double[]> &Q, const size_t qCols, const size_t N, std::vector<double> &EVs)
 {
     size_t matrixSize = N * qCols * 8; // watch out, overflow error might occur, 8 because of col width
     std::unique_ptr<double[]> Qtmp(new double[matrixSize]);
+    double EV = 0.0;
+    double bkbk, u; // b_k^\ast b_k
+    size_t col, uIndex, offset;
+    MultQSimple(M, Q, Qtmp, qCols, N); // Qtmp = A b_k
+    for (size_t EVIndex = 0; EVIndex < EVs.size(); EVIndex++)
+    {
+        col = EVIndex / 8;
+        offset = EVIndex % 8;
+        uIndex = col * N * 8 + offset;
+        EV = 0.0;
+        bkbk = 0.0;
+        for (size_t qRow = 0; qRow < N; qRow++)
+        {
+            u = Q[uIndex];
+            EV += u * Qtmp[uIndex];
+            bkbk += u * u;
+            uIndex += 8;
+        }
+        EVs[EVIndex] = EV / bkbk;
+    }
+}
+
+/*
+    getEigenvalues
+    gets EVs by using the \mu_k = \frac{b_k^\ast A b_k}{b_k^\ast b_k} Rayleigh-Quotient
+*/
+template <typename MT>
+void getEigenvalues(const MT &M, const std::shared_ptr<double[]> &Q, const size_t qCols, const size_t N, std::vector<double> &EVs)
+{
+    size_t matrixSize = N * qCols * 8; // watch out, overflow error might occur, 8 because of col width
+    std::shared_ptr<double[]> Qtmp(new double[matrixSize]);
     double EV = 0.0;
     double bkbk, u; // b_k^\ast b_k
     size_t col, uIndex, offset;
