@@ -28,10 +28,9 @@ int main(int argc, char const *argv[])
     size_t matrixSizeDouble = N * rhsWidth;
     std::shared_ptr<double[]> Qold(new double[matrixSizeDouble]);
     std::shared_ptr<double[]> Qnew(new double[matrixSizeDouble]);
-    std::shared_ptr<double[]> Qtmp(new double[matrixSizeDouble]);
     fillMatrixRandom(Qold, matrixSizeDouble);
     auto solver = std::make_shared<UMFPACKSOLVER>(laplacian, true);
-    solver->moesInversePowerIteration(Qold, Qnew, Qtmp, N, rhsWidth);
+    solver->moesInversePowerIteration(Qold, Qnew, N, rhsWidth);
     std::cout << "Finished Test" << std::endl;
     return 0;
 }

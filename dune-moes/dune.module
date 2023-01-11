@@ -7,6 +7,6 @@ Module: dune-moes
 Version: 0.0
 Maintainer: david.hector2@gmail.com
 # Required build dependencies
-Depends: dune-common dune-geometry dune-grid dune-istl dune-localfunctions dune-typetree dune-uggrid dune-functions
+Depends: dune-common dune-geometry dune-grid dune-istl dune-localfunctions dune-typetree dune-uggrid dune-functions dune-ftworth
 # Optional build dependencies
 #Suggests:

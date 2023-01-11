@@ -449,12 +449,13 @@ namespace Dune
          * @param b rhs Multivector
          * @param x solution Multivector
         */
-        void moesInversePowerIteration(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, std::shared_ptr<double[]> &xTmp, const size_t N, const size_t rhsWidth)
+        void moesInversePowerIteration(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const size_t N, const size_t rhsWidth)
         {
 
             // do_recip is a return value that tells me if the values in the diagonal matrix R are divided by or multiplied by
 
             size_t qCols = rhsWidth / 8;
+            std::shared_ptr<double[]> xTmp(new double[N * rhsWidth]);
             //std::shared_ptr<double[]> xTmp(new double[N * rhsWidth]); // since b needs to stay constant and we need to store intermediate results
             /*
             
@@ -467,37 +468,25 @@ namespace Dune
             // Therefore: A = R^{-1} P^{-1} LU Q^{-1}. We can calculate the subproblems as follows:
             
             */
-            // s = Rb with s = P^{-1} LU Q^{-1} x
-            // here: x = s, b = b
-            applyScaling(b, x, Rs, N, qCols, do_recip);
-            // t = P s with t = LU Q^{-1} x
-            // here: x = s, xTmp = t
-            applyPivotP(x, xTmp, P, N, qCols); // This is a row pivot
+            // t = PRb with t = LU Q^{-1} x
+            // here: x = t, b = b
+
+            applyScalingP(b, x, Rs, P, N, qCols, do_recip);
             // solve Lu = t with u = U Q^{-1} x
             // here: xTmp = t, x = u
-            solveL(xTmp, x, Lp, Lj, Lx, n_row, qCols);
-            // U v = u with v = Q^{-1} x
-            // here: x = u, xTmp = v
-            solveU(x, xTmp, Up, Ui, Ux, n_col, qCols);
-            // Solve x = Qv
-            // here: xTmp = v, x = x
-            applyPivotQ(xTmp, x, Q, N, qCols); // This is a column pivot
+            solveL(x, xTmp, Lp, Lj, Lx, n_row, qCols);
+            // U x = Q u
+            // here: x = x, xTmp = u
+            solveUQ(xTmp, x, Q, Up, Ui, Ux, n_col, qCols);
             // Normalize x
             normalize(x, N, qCols);
-
-            /*
-            delete[] Lp;
-            delete[] Lj;
-            delete[] Lx;
-            delete[] Up;
-            delete[] Ui;
-            delete[] Ux;
-            delete[] P;
-            delete[] Q;
-            delete[] Dx;
-            delete[] Rs;
-            */
         }
+
+        double getFlops() { return flops; }
+        double getFtime() { return ftime; }
+        double getCondNumber() { return conditionNumberEstimate; }
+        double getNonZeroL() { return nonZeroL; }
+        double getNonZeroU() { return nonZeroU; }
 
         /** @brief Set UMFPackMOES-specific options
      *
@@ -677,12 +666,17 @@ namespace Dune
             Lj = new int64_t[lnz];
             Lx = new double[lnz];
             Up = new int64_t[n_col + 1];
-            Ui = new int64_t[lnz];
-            Ux = new double[lnz];
+            Ui = new int64_t[unz];
+            Ux = new double[unz];
             P = new int64_t[n_row];
             Q = new int64_t[n_col];
             Dx = new double[std::min(n_row, n_col)];
             Rs = new double[n_row];
+            flops = UMF_Decomposition_Info[UMFPACK_FLOPS];
+            ftime = UMF_Decomposition_Info[UMFPACK_NUMERIC_WALLTIME];
+            conditionNumberEstimate = 1. / UMF_Decomposition_Info[UMFPACK_RCOND];
+            nonZeroL = UMF_Decomposition_Info[UMFPACK_LNZ];
+            nonZeroU = UMF_Decomposition_Info[UMFPACK_UNZ];
             status = Caller::get_numeric(Lp, Lj, Lx, Up, Ui, Ux, P, Q, Dx,
                                          &do_recip, Rs, UMF_Numeric);
         }
@@ -709,6 +703,7 @@ namespace Dune
         int64_t *Lp, *Lj, *Up, *Ui, *P, *Q;
         double *Lx, *Ux, *Dx, *Rs;
         double UMF_Control[UMFPACK_CONTROL];
+        double flops, ftime, conditionNumberEstimate, nonZeroL, nonZeroU;
         // Add the proper things here
     };
 
@@ -768,4 +763,4 @@ namespace Dune
 } // end namespace Dune
 
 //#endif // HAVE_SUITESPARSE_UMFPACK
-#endif
+#endif //  // end namespace Dun    namespace Dune

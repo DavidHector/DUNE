@@ -2,6 +2,9 @@
 #define DUNE_MOES_UTILS_HH
 
 #include <dune/moes/vectorclass/vectorclass.h>
+#include <dune/istl/bcrsmatrix.hh>
+#include <dune/common/fvector.hh>
+#include <dune/common/scalarmatrixview.hh>
 /**
  * @brief Solves L x = b
  * 
@@ -71,7 +74,7 @@ void solveL(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, co
  * @param Ui 
  * @param Ux 
  */
-void solveU(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const int64_t *Up, const int64_t *Ui, const double *Ux, const int64_t n_col, const size_t qCols)
+void solveUQ(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const int64_t *Q, const int64_t *Up, const int64_t *Ui, const double *Ux, const int64_t n_col, const size_t qCols)
 {
     // initialize x
     for (size_t i = 0; i < 8 * n_col * qCols; i++)
@@ -79,7 +82,7 @@ void solveU(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, co
         x[i] = 0.0;
     }
     Vec4d xFirst, xSecond, UEntry, bFirst, bSecond, tmpFirst, tmpSecond;
-    size_t bIndex, xIndex, URow;
+    size_t bIndex, bQIndex, xIndex, URow;
     for (size_t qCol = 0; qCol < qCols; qCol++)
     {
         // Go from right to left and bottom to top
@@ -89,6 +92,7 @@ void solveU(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, co
             // Diagonal Entry
             URow = Ui[Up[col + 1] - 1];
             UEntry = Ux[Up[col + 1] - 1];
+            // TODO: First solveU then apply PivotQ
             // Checked this: It does work as intended, no small diagonals were found that could cause the nans
             /*
             if (std::abs(UEntry[0]) < 0.00005)
@@ -96,22 +100,24 @@ void solveU(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, co
                 std::cout << "solveU: Encountered very small diagonal: " << UEntry[0] << std::endl;
             }
             */
+
             bIndex = 8 * n_col * qCol + 8 * URow;
+            bQIndex = 8 * n_col * qCol + 8 * Q[URow];
             bFirst.load(&b[bIndex]);
             bSecond.load(&b[bIndex + 4]);
-            xFirst.load(&x[bIndex]);
-            xSecond.load(&x[bIndex + 4]);
+            xFirst.load(&x[bQIndex]);
+            xSecond.load(&x[bQIndex + 4]);
             xFirst += bFirst;
             xSecond += bSecond;
             xFirst /= UEntry;
             xSecond /= UEntry;
-            xFirst.store(&x[bIndex]);
-            xSecond.store(&x[bIndex + 4]);
+            xFirst.store(&x[bQIndex]);
+            xSecond.store(&x[bQIndex + 4]);
             for (int64_t i = Up[col + 1] - 2; i >= Up[col]; i--)
             {
                 URow = Ui[i];
                 UEntry = Ux[i];
-                xIndex = 8 * n_col * qCol + 8 * URow;
+                xIndex = 8 * n_col * qCol + 8 * Q[URow];
                 tmpFirst.load(&x[xIndex]);
                 tmpSecond.load(&x[xIndex + 4]);
                 tmpFirst -= UEntry * xFirst;
@@ -217,18 +223,20 @@ void normalize(std::shared_ptr<double[]> &x, const size_t N, const size_t qCols)
         }
     }
 }
-void applyScalingMult(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const double *Rs, const size_t N, const size_t qCols)
+void applyScalingMult(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const double *Rs, const int64_t *P, const size_t N, const size_t qCols)
 {
     Vec4d REntry, xFirst, xSecond;
     size_t xIndex = 0;
+    size_t bIndex;
     for (size_t qCol = 0; qCol < qCols; qCol++)
     {
         for (size_t row = 0; row < N; row++)
         {
-            REntry = Rs[row]; // broadcast
+            REntry = Rs[P[row]]; // broadcast
             // xIndex = 8 * qCol * N + 8 * row;
-            xFirst.load(&b[xIndex]);
-            xSecond.load(&b[xIndex + 4]);
+            bIndex = 8 * qCol * N + 8 * P[row];
+            xFirst.load(&b[bIndex]);
+            xSecond.load(&b[bIndex + 4]);
             xFirst *= REntry;
             xSecond *= REntry;
             xFirst.store(&x[xIndex]);
@@ -237,18 +245,20 @@ void applyScalingMult(const std::shared_ptr<double[]> &b, std::shared_ptr<double
         }
     }
 };
-void applyScalingInverse(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const double *Rs, const size_t N, const size_t qCols)
+void applyScalingInverse(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const double *Rs, const int64_t *P, const size_t N, const size_t qCols)
 {
     Vec4d REntry, xFirst, xSecond;
     size_t xIndex = 0;
+    size_t bIndex;
     for (size_t qCol = 0; qCol < qCols; qCol++)
     {
         for (size_t row = 0; row < N; row++)
         {
-            REntry = Rs[row]; // broadcast
+            REntry = Rs[P[row]]; // broadcast
             // xIndex = 8 * qCol * N + 8 * row;
-            xFirst.load(&b[xIndex]);
-            xSecond.load(&b[xIndex + 4]);
+            bIndex = 8 * qCol * N + 8 * P[row];
+            xFirst.load(&b[bIndex]);
+            xSecond.load(&b[bIndex + 4]);
             xFirst /= REntry;
             xSecond /= REntry;
             xFirst.store(&x[xIndex]);
@@ -268,16 +278,135 @@ void applyScalingInverse(const std::shared_ptr<double[]> &b, std::shared_ptr<dou
  * @param qCols 
  * @param do_recip 
  */
-void applyScaling(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const double *Rs, const size_t N, const size_t qCols, const int do_recip)
+void applyScalingP(const std::shared_ptr<double[]> &b, std::shared_ptr<double[]> &x, const double *Rs, const int64_t *P, const size_t N, const size_t qCols, const int do_recip)
 {
     if (do_recip == 1)
     {
-        applyScalingMult(b, x, Rs, N, qCols);
+        applyScalingMult(b, x, Rs, P, N, qCols);
     }
     else
     {
-        applyScalingInverse(b, x, Rs, N, qCols);
+        applyScalingInverse(b, x, Rs, P, N, qCols);
     }
 }
+
+template <class B, class Alloc>
+void setupNeumannSparsityPattern(Dune::BCRSMatrix<B, Alloc> &A, int N)
+{
+    typedef typename Dune::BCRSMatrix<B, Alloc> Matrix;
+    A.setSize(N, N, N);
+    A.setBuildMode(Matrix::row_wise);
+    for (typename Dune::BCRSMatrix<B, Alloc>::CreateIterator i = A.createbegin(); i != A.createend(); ++i)
+    {
+        i.insert(i.index());
+    }
+}
+
+template <class B, class Alloc>
+void setupNeumannMat(Dune::BCRSMatrix<B, Alloc> &A, int N)
+{
+    typedef typename Dune::BCRSMatrix<B, Alloc>::field_type FieldType;
+    setupNeumannSparsityPattern(A, N);
+    auto startrows = A.begin()->operator[](A.begin().index()).rows;
+    for (size_t startrow = 0; startrow < startrows; startrow++)
+    {
+        A.begin()->operator[](A.begin().index())[startrow][startrow] = 0.0;
+    }
+
+    for (typename Dune::BCRSMatrix<B, Alloc>::RowIterator i = A.begin()++; i != A.end()--; ++i)
+    {
+        auto bRows = i->operator[](i.index()).rows;
+        for (size_t brow = 0; brow < bRows; brow++)
+        {
+            i->operator[](i.index())[brow][brow] = 1.0;
+        }
+
+        //i->operator[](i.index()) = 1.0; // cant just assign 1 to the entire block, only the diagonal
+    }
+    auto stoprows = A.end()->operator[](A.end().index()).rows;
+    for (size_t stoprow = 0; stoprow < stoprows; stoprow++)
+    {
+        A.end()->operator[](A.end().index())[stoprow][stoprow] = 0.0;
+    }
+}
+
+template <class B, class Alloc>
+void setupLaplacianSparsityPattern(Dune::BCRSMatrix<B, Alloc> &A, int N)
+{
+    typedef typename Dune::BCRSMatrix<B, Alloc> Matrix;
+    A.setSize(N * N, N * N, N * N * 5);
+    A.setBuildMode(Matrix::row_wise);
+
+    for (typename Dune::BCRSMatrix<B, Alloc>::CreateIterator i = A.createbegin(); i != A.createend(); ++i)
+    {
+        int x = i.index() % N; // x coordinate in the 2d field
+        int y = i.index() / N; // y coordinate in the 2d field
+
+        if (y > 0)
+            // insert lower neighbour
+            i.insert(i.index() - N);
+        if (x > 0)
+            // insert left neighbour
+            i.insert(i.index() - 1);
+
+        // insert diagonal value
+        i.insert(i.index());
+
+        if (x < N - 1)
+            //insert right neighbour
+            i.insert(i.index() + 1);
+        if (y < N - 1)
+            // insert upper neighbour
+            i.insert(i.index() + N);
+    }
+}
+
+template <class B, class Alloc>
+void setupIdentityWithLaplacianSparsityPattern(Dune::BCRSMatrix<B, Alloc> &A, int N)
+{
+    typedef typename Dune::BCRSMatrix<B, Alloc>::field_type FieldType;
+    setupLaplacianSparsityPattern(A, std::sqrt(N));
+    for (typename Dune::BCRSMatrix<B, Alloc>::RowIterator i = A.begin(); i != A.end(); ++i)
+    {
+        auto bRows = i->operator[](i.index()).rows;
+        for (size_t brow = 0; brow < bRows; brow++)
+        {
+            i->operator[](i.index())[brow][brow] = 1.0;
+        }
+
+        //i->operator[](i.index()) = 1.0; // cant just assign 1 to the entire block, only the diagonal
+    }
+}
+
+/*
+template <class B, class Alloc>
+void setupIdentitySparsityPattern(Dune::BCRSMatrix<B, Alloc> &A, int N)
+{
+    typedef typename Dune::BCRSMatrix<B, Alloc> Matrix;
+    A.setSize(N, N, N);
+    A.setBuildMode(Matrix::row_wise);
+    for (typename Dune::BCRSMatrix<B, Alloc>::CreateIterator i = A.createbegin(); i != A.createend(); ++i)
+    {
+        i.insert(i.index());
+    }
+}
+
+template <class B, class Alloc>
+void setupIdentity(Dune::BCRSMatrix<B, Alloc> &A, int N)
+{
+    typedef typename Dune::BCRSMatrix<B, Alloc>::field_type FieldType;
+    setupIdentitySparsityPattern(A, N);
+    for (typename Dune::BCRSMatrix<B, Alloc>::RowIterator i = A.begin(); i != A.end(); ++i)
+    {
+        auto bRows = i->operator[](i.index()).rows;
+        for (size_t brow = 0; brow < bRows; brow++)
+        {
+            i->operator[](i.index())[brow][brow] = 1.0;
+        }
+
+        //i->operator[](i.index()) = 1.0; // cant just assign 1 to the entire block, only the diagonal
+    }
+}
+*/
 
 #endif
