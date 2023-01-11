@@ -2,7 +2,7 @@ CMAKE_FLAGS="
 -DCMAKE_C_COMPILER='/usr/bin/gcc'
 -DCMAKE_CXX_COMPILER='/usr/bin/g++'
 -DCMAKE_Fortran_COMPILER='/usr/bin/gfortran'
--DCMAKE_CXX_FLAGS_RELEASE='-O3 -DNDEBUG -g0 -funroll-loops -ffast-math -ftemplate-depth=5120 -march=native -Wa,-q'
+-DCMAKE_CXX_FLAGS_RELEASE='-I/home/dhector/include -L/home/dhector/lib -O3 -DNDEBUG -g0 -funroll-loops -ffast-math -ftemplate-depth=5120 -march=native -Wa,-q'
 -DCMAKE_BUILD_TYPE=Release
 -DDUNE_SYMLINK_TO_SOURCE_TREE=1
 -DARPACK_ROOT=./external/arpack-ng

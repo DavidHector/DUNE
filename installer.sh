@@ -10,7 +10,7 @@
 #export F77=gfortran-mp-9
 #export CC=gcc-mp-9
 #export CXX=g++-mp-9
-export CXXFLAGS='-I/home/dhector/include -I/home/dhector/lib -O3 -DNDEBUG'
+export CXXFLAGS='-I/home/dhector/include -L/home/dhector/lib -O3 -DNDEBUG'
 #export MPICC=mpicc-mpich-gcc9
 #export MPICXX=mpicxx-mpich-gcc9
 #export CMAKE=/opt/bin/cmake #im pool
