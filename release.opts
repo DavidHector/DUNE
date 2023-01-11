@@ -6,5 +6,5 @@ CMAKE_FLAGS="
 -DCMAKE_BUILD_TYPE=Release
 -DDUNE_SYMLINK_TO_SOURCE_TREE=1
 -DARPACK_ROOT=./external/arpack-ng
--DARPACKPP_INCLUDE_DIR=./external/arpackpp/include/arpackpp/
+-DARPACKPP_INCLUDE_DIR=/home/dhector/include
 "
