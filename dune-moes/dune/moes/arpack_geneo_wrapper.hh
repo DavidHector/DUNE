@@ -5,8 +5,8 @@
 
 // copy-paste from the dune-pdelab geneo_nonovlp branch
 
-#ifndef DUNE_FTWORTH_GENEO_ARPACK_GENEO_HH
-#define DUNE_FTWORTH_GENEO_ARPACK_GENEO_HH
+#ifndef DUNE_MOES_GENEO_ARPACK_GENEO_HH
+#define DUNE_MOES_GENEO_ARPACK_GENEO_HH
 
 #include <cmath> // provides std::abs, std::pow, std::sqrt
 

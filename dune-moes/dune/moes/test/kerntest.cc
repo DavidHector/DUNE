@@ -13,7 +13,6 @@
 #include <dune/moes/MatrixMult.hh>
 #include <dune/moes/moes.hh>
 #include <dune/moes/Utils.hh>
-// #include <dune/ftworth/arpack_geneo_wrapper.hh>
 #include <dune/moes/arpack_geneo_wrapper.hh>
 
 int main(int argc, char const *argv[])
