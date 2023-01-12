@@ -211,7 +211,7 @@ void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance 
     const size_t lenrhsWidths = 7;
     size_t rhsWidths[lenrhsWidths] = {8, 16, 24, 32, 40, 56, 64};
     const size_t lenRepetitions = 7;
-    size_t repetitions[lenRepetitions] = {10, 5, 3, 1, 1, 1, 1};
+    size_t repetitions[lenRepetitions] = {100, 50, 30, 10, 10, 10, 10};
     size_t L, U, iterations, Annz;
     double LUflops, flopsM, gflopsM;
 

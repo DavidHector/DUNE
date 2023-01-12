@@ -43,4 +43,7 @@
 
 # build-files
 release-build/
+release.opts
+external/
+buildmoes.sh
 

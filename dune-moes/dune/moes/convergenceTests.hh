@@ -72,8 +72,8 @@ void csnGenMinLap(const std::string filenameOut, const double tolerance = 1e-8, 
 {
     const size_t lenNs = 5;
     size_t Ns[lenNs] = {144, 400, 900, 1600, 2500}; // Must be square numbers
-    const size_t lenIterations = 10;
-    size_t iterations[lenIterations] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    const size_t lenIterations = 12;
+    size_t iterations[lenIterations] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096};
     const size_t lenrhsWidths = 4;
     size_t rhsWidths[lenrhsWidths] = {8, 16, 32, 64}; // Must be multiples of 8
     double csn;

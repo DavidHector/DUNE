@@ -5,8 +5,8 @@
 
 // copy-paste from the dune-pdelab geneo_nonovlp branch
 
-#ifndef DUNE_MOES_GENEO_ARPACK_GENEO_HH
-#define DUNE_MOES_GENEO_ARPACK_GENEO_HH
+#ifndef DUNE_FTWORTH_GENEO_ARPACK_GENEO_HH
+#define DUNE_FTWORTH_GENEO_ARPACK_GENEO_HH
 
 #include <cmath> // provides std::abs, std::pow, std::sqrt
 
@@ -26,7 +26,7 @@
 #include <dune/istl/istlexception.hh> // provides Dune::ISTLError
 #include <dune/istl/io.hh>            // provides Dune::printvector(...)
 
-#include <dune/pdelab/backend/interface.hh>
+// #include <dune/pdelab/backend/interface.hh>
 
 #ifdef Status
 #undef Status // prevent preprocessor from damaging the ARPACK++ \
