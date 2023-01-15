@@ -21,20 +21,33 @@
 #include <dune/moes/Utils.hh>
 #include <dune/moes/arpack_geneo_wrapper.hh>
 
-size_t flopsCompGenMinMag(size_t iterations, size_t N, size_t nev, size_t qrFrequency, size_t L, size_t U, size_t M)
+double flopsCompGenMinMagIterationSum(size_t iterations, size_t N, size_t nev, size_t qrFrequency, size_t L, size_t U, size_t M)
 {
-    size_t gSflops = 2 * nev * nev * N - nev * nev / 2 - nev / 2;
-    size_t inverseFlops = 4 * nev * N + 2 * nev * L + 2 * nev * U - nev;
-    size_t sparseMatmul = 2 * nev * M - nev * N;
-    size_t getEvsflops = 2 * nev * M + 3 * nev * N; // This is not nev and it is also not the same for generalized and standard problems
-    size_t gsNumber = iterations / qrFrequency;
-    size_t total = gsNumber * gSflops + iterations * inverseFlops + iterations * sparseMatmul + iterations * getEvsflops;
+    double iterationsD = (double)iterations;
+    double ND = (double)N;
+    double nevD = (double)nev;
+    double qrFrequencyD = (double)qrFrequency;
+    double LD = (double)L;
+    double UD = (double)U;
+    double MD = (double)M;
+
+    double gSflops = iterationsD / qrFrequencyD * (2.0 * nevD * nevD * ND - nevD * nevD / 2.0 - nevD / 2.0);
+    double inverseFlops = 2.0 * nevD * LD + 2.0 * nevD * UD + 2.0 * nevD * ND - nevD;
+    double sparseMatmul = 2.0 * nevD * MD - nevD * ND;
+    double getEvsflops = 4.0 * nevD * MD + 2.0 * nevD * ND;
+    double total = gSflops + inverseFlops + sparseMatmul + getEvsflops;
     return total;
 }
 
-size_t flopsCompStdMinMag()
+double flopsCompStdMinMag(size_t iterations, size_t N, size_t nev, size_t qrFrequency, size_t L, size_t U, size_t M)
 {
-    //TODO
+    double gSflops = iterations / qrFrequency * (2.0 * nev * nev * N - nev * nev / 2.0 - nev / 2.0);
+    double inverseFlops = 2.0 * nev * L + 2.0 * nev * U + 2.0 * nev * N - nev;
+    double sparseMatmul = 2.0 * nev * M - nev * N;
+    double getEvsflops = 2.0 * nev * M + 3.0 * nev * N;
+    double total = gSflops + inverseFlops + sparseMatmul + getEvsflops;
+    total *= iterations;
+    return total;
 }
 
 size_t flopsCompGenMaxMag()
@@ -76,7 +89,7 @@ void flopsSeqGenMinApproxFileRead(const std::string filenameA, const std::string
     const size_t lenRhsWidths = 6;
     size_t rhsWidths[lenRhsWidths] = {8, 16, 24, 32, 40, 48};
     size_t repetitions[lenRhsWidths] = {500, 100, 50, 10, 10, 1};
-    size_t iterations, iterationstmp, L, U, Annz;
+    size_t iterations, sumIterations, L, U, Annz;
     Annz = A.nonzeroes();
     double gflops, flops;
     double LUflops;
@@ -89,17 +102,18 @@ void flopsSeqGenMinApproxFileRead(const std::string filenameA, const std::string
     {
         iterations = 0;
         auto start = std::chrono::high_resolution_clock::now();
+        sumIterations = 0;
         for (size_t j = 0; j < repetitions[i]; j++)
         {
-            moesflops.computeGenMinMagnitudeApprox(B, tolerance, eigenvecs, eigenvals, rhsWidths[i], qrFrequency, sigma, alpha, L, U, LUflops, iterationstmp);
-            iterations += iterationstmp;
+            moesflops.computeGenMinMagnitudeApprox(B, tolerance, eigenvecs, eigenvals, rhsWidths[i], qrFrequency, sigma, alpha, L, U, LUflops, iterations);
+            sumIterations += iterations;
         }
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
         double averageDuration = (double)duration.count() / (double)repetitions[i];
         iterations = iterations / repetitions[i];
-        flops = flopsCompGenMinMag(iterations, N, rhsWidths[i], qrFrequency, L, U, Annz) + LUflops;
-        gflops = flops / averageDuration;
+        flops = flopsCompGenMinMagIterationSum(sumIterations, N, rhsWidths[i], qrFrequency, L, U, Annz) + repetitions[i] * LUflops;
+        gflops = flops / duration.count();
         outputFile << "\n"
                    << rhsWidths[i] << "," << repetitions[i] << "," << iterations << "," << gflops << ",";
     }
@@ -186,7 +200,7 @@ void flopsParGenMinApproxFileRead(const std::string filenameA, const std::string
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
         double averageDuration = (double)duration.count() / (double)repetitions[i];
         iterations = iterationstmp / repetitions[i];
-        flops = flopsCompGenMinMag(iterations, N, rhsWidth, qrFrequency, L, U, Annz) + LUflops;
+        flops = flopsCompGenMinMagIterationSum(iterations, N, rhsWidth, qrFrequency, L, U, Annz) + LUflops;
         flops *= threadCounts[i];
         gflops = flops / averageDuration;
         outputFile << "\n"
@@ -212,7 +226,7 @@ void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance 
     size_t rhsWidths[lenrhsWidths] = {8, 16, 24, 32, 40, 56, 64};
     const size_t lenRepetitions = 7;
     size_t repetitions[lenRepetitions] = {100, 50, 30, 10, 10, 10, 10};
-    size_t L, U, iterations, Annz;
+    size_t L, U, iterations, Annz, sumIterations;
     double LUflops, flopsM, gflopsM;
 
     std::ofstream outFile;
@@ -236,10 +250,12 @@ void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance 
             std::vector<VEC> arevs(rhsWidths[irhs], vec);
             std::vector<double> moeslambdas(rhsWidths[irhs], 0.0);
             std::vector<double> arlambdas(rhsWidths[irhs], 0.0);
+            sumIterations = 0;
             auto startMoes = std::chrono::high_resolution_clock::now();
             for (size_t reps = 0; reps < repetitions[irhs]; reps++)
             {
                 flopsMoes.computeGenMinMagnitude(B, tolerance, moesevs, moeslambdas, rhsWidths[irhs], qrFrequency, sigma, L, U, LUflops, iterations);
+                sumIterations += iterations;
             }
             auto stopMoes = std::chrono::high_resolution_clock::now();
             auto durationMoes = std::chrono::duration_cast<std::chrono::nanoseconds>(stopMoes - startMoes);
@@ -254,8 +270,9 @@ void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance 
             auto durationAr = std::chrono::duration_cast<std::chrono::nanoseconds>(stopAr - startAr);
             double averageDurationA = (double)durationAr.count() / (double)repetitions[irhs];
 
-            flopsM = flopsCompGenMinMag(iterations, Ns[iN], rhsWidths[irhs], qrFrequency, L, U, Annz) + LUflops;
-            gflopsM = flopsM / averageDurationM;
+            // Possible mistake, I am always using the last iterations number
+            flopsM = flopsCompGenMinMagIterationSum(sumIterations, Ns[iN], rhsWidths[irhs], qrFrequency, L, U, Annz) + repetitions[irhs] * LUflops;
+            gflopsM = flopsM / durationMoes.count();
             outFile << "\n"
                     << Ns[iN] << "," << rhsWidths[irhs] << "," << repetitions[irhs] << "," << gflopsM << "," << averageDurationM << "," << averageDurationA << ",";
         }

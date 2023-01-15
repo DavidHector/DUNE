@@ -166,7 +166,7 @@ public:
         fillMatrixRandom(Q, matrixSize);
         // Make the shifted Matrix first and don't forget to recalc the eigenvalues
 
-        auto solver = std::make_shared<Dune::UMFPackMOES<MAT>>(bshifta, true);
+        auto solver = std::make_shared<Dune::UMFPackMOES<MAT>>(bshifta, false);
         while (cb)
         {
             MultQSimpleShared(A_, Q, AQ, qCols, N);
@@ -240,7 +240,7 @@ public:
         fillMatrixRandom(Q, matrixSize);
         // Make the shifted Matrix first and don't forget to recalc the eigenvalues
 
-        auto solver = std::make_shared<Dune::UMFPackMOES<MAT>>(bshifta, true);
+        auto solver = std::make_shared<Dune::UMFPackMOES<MAT>>(bshifta, false);
         while (cb)
         {
             MultQSimpleShared(A_, Q, AQ, qCols, N);
@@ -301,7 +301,7 @@ public:
         fillMatrixRandom(Q, matrixSize);
         // Make the shifted Matrix first and don't forget to recalc the eigenvalues
 
-        auto solver = std::make_shared<Dune::UMFPackMOES<MAT>>(ashifted, true);
+        auto solver = std::make_shared<Dune::UMFPackMOES<MAT>>(ashifted, false);
         while (cb)
         {
             solver->moesInversePowerIteration(Q, Qtmp, N, nev);
@@ -361,7 +361,7 @@ public:
         fillMatrixRandom(Q, matrixSize);
         // Make the shifted Matrix first and don't forget to recalc the eigenvalues
 
-        auto solver = std::make_shared<Dune::UMFPackMOES<MAT>>(ashiftb);
+        auto solver = std::make_shared<Dune::UMFPackMOES<MAT>>(ashiftb, false);
         L = solver->getNonZeroL();
         U = solver->getNonZeroU();
         LUflops = solver->getFlops();
@@ -378,6 +378,7 @@ public:
             getGenEigenvalues(ashiftb, B, Q, lambda, nev, sigma);
             if (largestEvDiff(lambdatmp, lambda) < epsilon || it > nIterationsMax_)
             {
+                // printQ(Q, qCols);
                 qToVEC(Q, x);
                 if (checkOrthonormality)
                 {
@@ -393,6 +394,22 @@ public:
         }
         iterations = it;
     };
+
+    void printQ(const std::shared_ptr<double[]> &Q, const size_t qCols) const
+    {
+        size_t qIndex = 0;
+        for (size_t qCol = 0; qCol < qCols; qCol++)
+        {
+            std::cout << "Raw Q is: " << std::endl;
+            std::cout << std::endl;
+            for (size_t i = 0; i < N; i++)
+            {
+                std::cout << Q[qIndex] << ", " << Q[qIndex + 1] << ", " << Q[qIndex + 2] << ", " << Q[qIndex + 3] << ", " << Q[qIndex + 4] << ", " << Q[qIndex + 5] << ", " << Q[qIndex + 6] << ", " << Q[qIndex + 6] << ", " << std::endl;
+                qIndex += 8;
+            }
+            std::cout << std::endl;
+        }
+    }
 
     inline void computeGenMinMagnitudeIterations(const MAT &B, std::vector<VEC> &x, std::vector<double> &lambda, const size_t &iterations, const int &nev, const int &qrFrequency, const double &sigma, bool checkOrthonormality = false) const
     {
@@ -607,44 +624,60 @@ public:
         }
     };
 
+    void getBiggestDifference(const std::vector<VEC> &qa, const std::vector<VEC> &qe)
+    {
+        double bd = 0.0;
+        double tmp = 0.0;
+        size_t rhsIndex = 0;
+        size_t rowIndex = 0;
+        for (size_t rhs = 0; rhs < qa.size(); rhs++)
+        {
+            for (size_t row = 0; row < N; row++)
+            {
+                tmp = std::abs(qa[rhs][row][0] - qe[rhs][row][0]);
+                if (tmp > bd)
+                {
+                    bd = tmp;
+                    rhsIndex = rhs;
+                    rowIndex = row;
+                }
+            }
+        }
+        std::cout << "Biggest difference: " << bd << " at rhs = " << rhsIndex << " and row = " << rowIndex << std::endl;
+    }
+
     // Get the norm || (I - QaQaT) QeQeT||
     // This just takes too long, need to find better way (maybe the problem is also memory requirement, NxN is too much 8e12B = 8TB RAM, yeahhhh, 8e8 B= 800MB for the lowest case)
     double columnSumNorm(const std::vector<VEC> &qa, const std::vector<VEC> &qe)
     {
-        if ((qa.size() != qe.size()) || (qa[0].N() != qe[0].N()))
-        {
-            std::cout << "compareToArpack: Size mismatch between qa and qe!" << std::endl;
-            return 100.0;
-        }
         if (qa[0].N() != N)
         {
             std::cout << "compareToArpack: Length of vectors in qa != matrix size N !" << std::endl;
             return 100.0;
         }
+        if (qe[0].N() != N)
+        {
+            std::cout << "compareToArpack: Length of vectors in qe != matrix size N !" << std::endl;
+            return 100.0;
+        }
 
         // Need two NxN matrices
-        const size_t rhsWidth = qa.size();
         std::unique_ptr<double[]> QaQaT(new double[N * N]); // store as row major or column major? (If I do Qa row major and Qe column major, the multiplication is faster)
         std::unique_ptr<double[]> QeQeT(new double[N * N]); // Column major
         double atmp;
         double etmp;
         double csn = 0.0; // column sum norm
         double csntmp;
-        // Construct QaQaT and QeQeT
+        // Construct I-QaQaT
         for (size_t row = 0; row < N; row++)
         {
             for (size_t col = 0; col < N; col++)
             {
                 atmp = 0.0;
-                etmp = 0.0;
-                for (size_t k = 0; k < rhsWidth; k++)
+                for (size_t k = 0; k < qa.size(); k++)
                 {
                     atmp += qa[k][row][0] * qa[k][col][0];
-                    etmp += qe[k][row][0] * qe[k][col][0];
                 }
-                // Whelp, it doesn't even matter because these matrices are symmetric anyway, hide the pain harold
-                // So I could probably get away with half the number of calculations, but I have to make progress before I can think about that
-                // Already do the I - QaQaT
                 if (row == col)
                 {
                     // diagonal element
@@ -653,6 +686,19 @@ public:
                 else
                 {
                     QaQaT[row * N + col] = -1.0 * atmp;
+                }
+            }
+        }
+
+        // Construct QeQeT
+        for (size_t row = 0; row < N; row++)
+        {
+            for (size_t col = 0; col < N; col++)
+            {
+                etmp = 0.0;
+                for (size_t k = 0; k < qe.size(); k++)
+                {
+                    etmp += qe[k][row][0] * qe[k][col][0];
                 }
                 // row major storage
                 QeQeT[row * N + col] = etmp; // row major storage (is the same as column major in this case)
@@ -668,9 +714,90 @@ public:
                 atmp = 0.0;
                 for (size_t i = 0; i < N; i++)
                 {
-                    atmp += QaQaT[row * N + i] * QeQeT[col * N + i];
+                    atmp += QaQaT[row * N + i] * QeQeT[i * N + col];
                 }
                 csntmp += std::abs(atmp);
+            }
+            if (csntmp > csn)
+            {
+                csn = csntmp;
+            }
+        }
+        return csn;
+    }
+
+    // Alternative csn calc to check against
+    double columnSumNormAlt(const std::vector<VEC> &qa, const std::vector<VEC> &qe)
+    {
+        if (qa[0].N() != qe[0].N())
+        {
+            std::cout << "compareToArpack: Size mismatch between qa and qe!" << std::endl;
+            return 100.0;
+        }
+        if (qa[0].N() != N)
+        {
+            std::cout << "compareToArpack: Length of vectors in qa != matrix size N !" << std::endl;
+            return 100.0;
+        }
+
+        // Need three NxN matrices
+        std::unique_ptr<double[]> QaQaT(new double[N * N]);
+        std::unique_ptr<double[]> QeQeT(new double[N * N]);
+        std::unique_ptr<double[]> QaQe(new double[N * N]);
+
+        double atmp;
+        double etmp;
+        double csn = 0.0; // column sum norm
+        double csntmp;
+        // Construct QaQaT and QeQeT
+        for (size_t row = 0; row < N; row++)
+        {
+            for (size_t col = 0; col < N; col++)
+            {
+                atmp = 0.0;
+                for (size_t k = 0; k < qa.size(); k++)
+                {
+                    atmp += qa[k][row][0] * qa[k][col][0];
+                }
+                QaQaT[row * N + col] = atmp;
+                etmp = 0.0;
+                for (size_t k = 0; k < qe.size(); k++)
+                {
+                    etmp += qe[k][row][0] * qe[k][col][0];
+                }
+                QeQeT[row * N + col] = etmp;
+            }
+        }
+        // Matrix mult
+        for (size_t row = 0; row < N; row++)
+        {
+            for (size_t col = 0; col < N; col++)
+            {
+                atmp = 0.0;
+                for (size_t i = 0; i < N; i++)
+                {
+                    atmp += QaQaT[N * row + i] * QeQeT[N * i + col];
+                }
+                QaQe[row * N + col] = atmp;
+            }
+        }
+
+        // Matrix subtract
+        for (size_t row = 0; row < N; row++)
+        {
+            for (size_t col = 0; col < N; col++)
+            {
+                QeQeT[N * row + col] -= QaQe[row * N + col];
+            }
+        }
+
+        // Norm calculation
+        for (size_t col = 0; col < N; col++)
+        {
+            csntmp = 0.0;
+            for (size_t row = 0; row < N; row++)
+            {
+                csntmp += std::abs(QeQeT[row * N + col]);
             }
             if (csntmp > csn)
             {
@@ -766,8 +893,8 @@ public:
                 qOldSecond.load(&Q[qIndex + 4]);
                 qBFirst.load(&BQ[qIndex]);
                 qBSecond.load(&BQ[qIndex + 4]);
-                evFirst += qOldFirst * qNewFirst; // b A b
-                bBbFirst += qOldFirst * qBFirst;  // b*b
+                evFirst += qOldFirst * qNewFirst; // b A-\sigma b
+                bBbFirst += qOldFirst * qBFirst;  // b*Bb
                 evSecond += qOldSecond * qNewSecond;
                 bBbSecond += qOldSecond * qBSecond;
 

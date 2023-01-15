@@ -37,6 +37,7 @@ int main(int argc, char const *argv[])
     std::string MToutFile = "neumann_problem_1_3_MT.csv";
     std::string genMinApproxcsnOutFile = "neumann_problem_1_3_csn.csv";
     std::string genMinLapcsnOutFile = "laplacian_identity_gen_csn.csv";
+    std::string genMinLapNeucsnOutFile = "laplacian_neumann_gen_csn.csv";
     std::string genMinLapSeqTimingOutFile = "laplacian_identity_seq_gen_timing.csv";
 
     std::cout << "Benchmarking moes.computeGenMinMagnitude() vs arpack (timing) on matrices with non-intersecting kernels..." << std::endl;
@@ -55,8 +56,12 @@ int main(int argc, char const *argv[])
     csnGenMinApprox<MAT, VEC>(fileA, fileB, genMinApproxcsnOutFile);
     std::cout << "Complete." << std::endl;
 
-    std::cout << "Column Sum Norm vs Arpack using moes.computeGenMinMagnitude() on matrices with non-intersecting kernels... " << std::endl;
+    std::cout << "Column Sum Norm vs Arpack using moes.computeGenMinMagnitude() on matrices with non-intersecting kernels (laplacian and identity)... " << std::endl;
     csnGenMinLap<MAT, VEC>(genMinLapcsnOutFile);
+    std::cout << "Complete." << std::endl;
+
+    std::cout << "Column Sum Norm vs Arpack using moes.computeGenMinMagnitude() on matrices with non-intersecting kernels (laplacian and neumann(DLD))... " << std::endl;
+    csnGenMinLapNeu<MAT, VEC>(genMinLapNeucsnOutFile);
     std::cout << "Complete." << std::endl;
     return 0;
 }

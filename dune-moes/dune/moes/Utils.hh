@@ -378,35 +378,155 @@ void setupIdentityWithLaplacianSparsityPattern(Dune::BCRSMatrix<B, Alloc> &A, in
     }
 }
 
-/*
 template <class B, class Alloc>
-void setupIdentitySparsityPattern(Dune::BCRSMatrix<B, Alloc> &A, int N)
-{
-    typedef typename Dune::BCRSMatrix<B, Alloc> Matrix;
-    A.setSize(N, N, N);
-    A.setBuildMode(Matrix::row_wise);
-    for (typename Dune::BCRSMatrix<B, Alloc>::CreateIterator i = A.createbegin(); i != A.createend(); ++i)
-    {
-        i.insert(i.index());
-    }
-}
-
-template <class B, class Alloc>
-void setupIdentity(Dune::BCRSMatrix<B, Alloc> &A, int N)
+void setupLaplacianWithBoundary(Dune::BCRSMatrix<B, Alloc> &A, int N)
 {
     typedef typename Dune::BCRSMatrix<B, Alloc>::field_type FieldType;
-    setupIdentitySparsityPattern(A, N);
+    size_t neighborCount;
+
+    setupLaplacianSparsityPattern(A, N);
+
+    B diagonal(static_cast<FieldType>(0)), bone(static_cast<FieldType>(0));
+
+    auto setDiagonal = [](auto &&scalarOrMatrix, const auto &value) {
+        auto &&matrix = Dune::Impl::asMatrix(scalarOrMatrix);
+        for (auto rowIt = matrix.begin(); rowIt != matrix.end(); ++rowIt)
+            (*rowIt)[rowIt.index()] = value;
+    };
+
+    setDiagonal(diagonal, 4.0);
+    setDiagonal(bone, -1.0);
+
     for (typename Dune::BCRSMatrix<B, Alloc>::RowIterator i = A.begin(); i != A.end(); ++i)
     {
-        auto bRows = i->operator[](i.index()).rows;
-        for (size_t brow = 0; brow < bRows; brow++)
+        int x = i.index() % N; // x coordinate in the 2d field
+        int y = i.index() / N; // y coordinate in the 2d field
+
+        neighborCount = 0;
+
+        if (y > 0)
         {
-            i->operator[](i.index())[brow][brow] = 1.0;
+            i->operator[](i.index() - N) = bone;
+            neighborCount++;
+        }
+        if (y < N - 1)
+        {
+            i->operator[](i.index() + N) = bone;
+            neighborCount++;
         }
 
-        //i->operator[](i.index()) = 1.0; // cant just assign 1 to the entire block, only the diagonal
+        if (x > 0)
+        {
+            i->operator[](i.index() - 1) = bone;
+            neighborCount++;
+        }
+
+        if (x < N - 1)
+        {
+            i->operator[](i.index() + 1) = bone;
+            neighborCount++;
+        }
+        setDiagonal(diagonal, neighborCount);
+        i->operator[](i.index()) = diagonal;
     }
 }
-*/
+
+// Laplacian without the boundary, i.e. A = DLD, if L is the Laplacian from above and D are diagonal matrices, with 0 on the boundary
+template <class B, class Alloc>
+void setupLaplacianWithoutBoundary(Dune::BCRSMatrix<B, Alloc> &A, int N)
+{
+    typedef typename Dune::BCRSMatrix<B, Alloc>::field_type FieldType;
+
+    setupLaplacianSparsityPattern(A, N);
+
+    B diagonal(static_cast<FieldType>(0)), bone(static_cast<FieldType>(0));
+
+    auto setDiagonal = [](auto &&scalarOrMatrix, const auto &value) {
+        auto &&matrix = Dune::Impl::asMatrix(scalarOrMatrix);
+        for (auto rowIt = matrix.begin(); rowIt != matrix.end(); ++rowIt)
+            (*rowIt)[rowIt.index()] = value;
+    };
+
+    setDiagonal(diagonal, 4.0);
+    setDiagonal(bone, -1.0);
+    // Have to construct it differently, right now, there are too many -1 entries left over
+    // Probably first make a pass over the entire matrix with the all neighbor condition
+    // Then another pass with the zeroes
+    // Or maybe do the multiplication DAD^T = DAD
+    for (typename Dune::BCRSMatrix<B, Alloc>::RowIterator i = A.begin(); i != A.end(); ++i)
+    {
+        int x = i.index() % N; // x coordinate in the 2d field
+        int y = i.index() / N; // y coordinate in the 2d field
+
+        if ((y > 0) && (y < N - 1) && (x > 0) && (x < N - 1))
+        {
+            setDiagonal(diagonal, 4.0);
+            i->operator[](i.index() - N) = bone;
+            i->operator[](i.index() + N) = bone;
+            i->operator[](i.index() - 1) = bone;
+            i->operator[](i.index()) = diagonal;
+            i->operator[](i.index() + 1) = bone;
+        }
+    }
+
+    bool boundary;
+    setDiagonal(diagonal, 0.0);
+    // There are too many -1 left
+    for (typename Dune::BCRSMatrix<B, Alloc>::RowIterator i = A.begin(); i != A.end(); ++i)
+    {
+        int x = i.index() % N; // x coordinate in the 2d field
+        int y = i.index() / N; // y coordinate in the 2d field
+        boundary = !((y > 0) && (y < N - 1) && (x > 0) && (x < N - 1));
+        if (boundary)
+        {
+            // Set entire row to zero
+            if (y > 0)
+            {
+                i->operator[](i.index() - N) = diagonal;
+            }
+            if (y < N - 1)
+            {
+                i->operator[](i.index() + N) = diagonal;
+            }
+
+            if (x > 0)
+            {
+                i->operator[](i.index() - 1) = diagonal;
+            }
+
+            if (x < N - 1)
+            {
+                i->operator[](i.index() + 1) = diagonal;
+            }
+            i->operator[](i.index()) = diagonal;
+            // Set entire column to Zero
+            // i.index() is both the column and the row
+            // I have to go through every row, then iterate through the columns, if they have index i.index(), then set it to 0
+            for (auto row = A.begin(); row != A.end(); row++)
+            {
+                for (auto col = (*row).begin(); col != (*row).end(); col++)
+                {
+                    if (col.index() == i.index())
+                    {
+                        row->operator[](i.index()) = diagonal;
+                    }
+                }
+            }
+        }
+    }
+}
+
+template <typename MAT>
+void printBCRS(const MAT &A)
+{
+    for (auto rowIterator = A.begin(); rowIterator != A.end(); rowIterator++)
+    {
+        for (auto colIterator = (*rowIterator).begin(); colIterator != (*rowIterator).end(); colIterator++)
+        {
+            std::cout << *colIterator << "\t";
+        }
+        std::cout << std::endl;
+    }
+}
 
 #endif

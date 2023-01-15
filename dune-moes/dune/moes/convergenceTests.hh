@@ -32,9 +32,9 @@ void csnGenMinApprox(const std::string Afile, const std::string Bfile, const std
     size_t iterations[lenIterations] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
     VEC vec(A.N());
     vec = 0.0;
-    std::vector<VEC> evs(rhsWidth, vec);
+    std::vector<VEC> evs(rhsWidth + 8, vec);
     std::vector<VEC> arpacksevs(rhsWidth, vec);
-    std::vector<double> lambdas(rhsWidth, 0.0);
+    std::vector<double> lambdas(rhsWidth + 8, 0.0);
     std::vector<double> arlambdas(rhsWidth, 0.0);
     double LUflops, csn;
     size_t L, U;
@@ -50,7 +50,7 @@ void csnGenMinApprox(const std::string Afile, const std::string Bfile, const std
     outputFile << "rhsWidth, iterations, columnSumNorm, arpackTolerance, ";
     for (size_t i = 0; i < lenIterations; i++)
     {
-        csnMoes.computeGenMinMagnitudeApproxIterations(B, evs, lambdas, rhsWidth * 2, qrFrequency, sigma, alpha, L, U, LUflops, iterations[i]);
+        csnMoes.computeGenMinMagnitudeApproxIterations(B, evs, lambdas, rhsWidth + 8, qrFrequency, sigma, alpha, L, U, LUflops, iterations[i]);
         csn = csnMoes.columnSumNorm(evs, arpacksevs);
         outputFile << "\n"
                    << rhsWidth << "," << iterations[i] << "," << csn << "," << tolerance << ",";
@@ -68,23 +68,24 @@ void reducevectorlength(const std::vector<VEC> &vold, std::vector<VEC> &vnew)
 }
 
 template <typename MAT, typename VEC>
-void csnGenMinLap(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = 0.01, const size_t qrFrequency = 1)
+void csnGenMinLap(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = -0.5, const size_t qrFrequency = 1)
 {
     const size_t lenNs = 5;
     size_t Ns[lenNs] = {144, 400, 900, 1600, 2500}; // Must be square numbers
-    const size_t lenIterations = 12;
-    size_t iterations[lenIterations] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096};
+    const size_t lenIterations = 13;
+    size_t iterations[lenIterations] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192};
     const size_t lenrhsWidths = 4;
     size_t rhsWidths[lenrhsWidths] = {8, 16, 32, 64}; // Must be multiples of 8
-    double csn;
-    size_t nonred;
+    double csn, csnAlt;
     std::ofstream outputFile;
     outputFile.open(filenameOut);
     outputFile << "N, rhsWidth, iterations, columnSumNorm, arpackTolerance, ";
     for (size_t iN = 0; iN < lenNs; iN++)
     {
         MAT A, B;
+        // setupLaplacianWithBoundary(A, std::sqrt(Ns[iN]));
         setupLaplacian(A, std::sqrt(Ns[iN]));
+        // setupLaplacianWithoutBoundary(B, std::sqrt(Ns[iN]));
         setupIdentity(B, Ns[iN]);
         VEC vec(Ns[iN]);
         vec = 0.0;
@@ -92,19 +93,71 @@ void csnGenMinLap(const std::string filenameOut, const double tolerance = 1e-8, 
         moes<MAT, VEC> csnMoes(A);
         for (size_t irhsW = 0; irhsW < lenrhsWidths; irhsW++)
         {
-            nonred = rhsWidths[irhsW] * 2;
-            std::vector<VEC> moesevs(rhsWidths[irhsW], vec);
-            std::vector<VEC> arevs(nonred, vec);
-            std::vector<VEC> arevsred(rhsWidths[irhsW], vec);
-            std::vector<double> moeslambdas(rhsWidths[irhsW], 0.0);
-            std::vector<double> arlambdas(nonred, 0.0);
+            std::vector<VEC> moesevs(rhsWidths[irhsW] + 8, vec); // moesevs must be a superset of arevs
+            std::vector<VEC> arevs(rhsWidths[irhsW], vec);
+            std::vector<double> moeslambdas(rhsWidths[irhsW] + 8, 0.0);
+            std::vector<double> arlambdas(rhsWidths[irhsW], 0.0);
             arpack.computeGenNonSymShiftInvertMinMagnitude(B, tolerance, arevs, arlambdas, sigma);
+            // arpack.computeGenSymShiftInvertMinMagnitude(B, tolerance, arevs, arlambdas, sigma);
+            // int arpackits = arpack.getIterationCount(); // Get Arpack iterations
+            std::cout << "rhsWidth = " << rhsWidths[irhsW] << std::endl;
             for (size_t iIts = 0; iIts < lenIterations; iIts++)
             {
-                csnMoes.computeGenMinMagnitudeIterations(B, moesevs, moeslambdas, iterations[iIts], nonred, qrFrequency, sigma);
+                csnMoes.computeGenMinMagnitudeIterations(B, moesevs, moeslambdas, iterations[iIts], rhsWidths[irhsW] + 8, qrFrequency, sigma);
                 // could also do flop calculation here
-                reducevectorlength(arevs, arevsred);
-                csn = csnMoes.columnSumNorm(moesevs, arevsred);
+                csn = csnMoes.columnSumNorm(moesevs, arevs);
+                // csnAlt = csnMoes.columnSumNormAlt(moesevs, arevs);
+                std::cout << "csn = " << csn << ", csnAlt = " << csnAlt << std::endl;
+                outputFile << "\n"
+                           << Ns[iN] << "," << rhsWidths[irhsW] << "," << iterations[iIts] << "," << csn << "," << tolerance << ",";
+            }
+        }
+        std::cout << "N = " << Ns[iN] << " . Finished." << std::endl;
+    }
+    outputFile.close();
+}
+
+template <typename MAT, typename VEC>
+void csnGenMinLapNeu(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = -0.5, const size_t qrFrequency = 1)
+{
+    const size_t lenNs = 5;
+    size_t Ns[lenNs] = {144, 400, 900, 1600, 2500}; // Must be square numbers
+    const size_t lenIterations = 13;
+    size_t iterations[lenIterations] = {2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192};
+    const size_t lenrhsWidths = 4;
+    size_t rhsWidths[lenrhsWidths] = {8, 16, 32, 64}; // Must be multiples of 8
+    double csn, csnAlt;
+    std::ofstream outputFile;
+    outputFile.open(filenameOut);
+    outputFile << "N, rhsWidth, iterations, columnSumNorm, arpackTolerance, ";
+    for (size_t iN = 0; iN < lenNs; iN++)
+    {
+        MAT A, B;
+        // setupLaplacianWithBoundary(A, std::sqrt(Ns[iN]));
+        setupLaplacianWithBoundary(A, std::sqrt(Ns[iN]));
+        // setupLaplacianWithoutBoundary(B, std::sqrt(Ns[iN]));
+        setupLaplacianWithoutBoundary(B, Ns[iN]);
+        VEC vec(Ns[iN]);
+        vec = 0.0;
+        ArpackMLGeneo::ArPackPlusPlus_Algorithms<MAT, VEC> arpack(A);
+        moes<MAT, VEC> csnMoes(A);
+        for (size_t irhsW = 0; irhsW < lenrhsWidths; irhsW++)
+        {
+            std::vector<VEC> moesevs(rhsWidths[irhsW] + 8, vec); // moesevs must be a superset of arevs
+            std::vector<VEC> arevs(rhsWidths[irhsW], vec);
+            std::vector<double> moeslambdas(rhsWidths[irhsW] + 8, 0.0);
+            std::vector<double> arlambdas(rhsWidths[irhsW], 0.0);
+            arpack.computeGenNonSymShiftInvertMinMagnitude(B, tolerance, arevs, arlambdas, sigma);
+            // arpack.computeGenSymShiftInvertMinMagnitude(B, tolerance, arevs, arlambdas, sigma);
+            // int arpackits = arpack.getIterationCount(); // Get Arpack iterations
+            std::cout << "rhsWidth = " << rhsWidths[irhsW] << std::endl;
+            for (size_t iIts = 0; iIts < lenIterations; iIts++)
+            {
+                csnMoes.computeGenMinMagnitudeIterations(B, moesevs, moeslambdas, iterations[iIts], rhsWidths[irhsW] + 8, qrFrequency, sigma);
+                // could also do flop calculation here
+                csn = csnMoes.columnSumNorm(moesevs, arevs);
+                // csnAlt = csnMoes.columnSumNormAlt(moesevs, arevs);
+                std::cout << "csn = " << csn << ", csnAlt = " << csnAlt << std::endl;
                 outputFile << "\n"
                            << Ns[iN] << "," << rhsWidths[irhsW] << "," << iterations[iIts] << "," << csn << "," << tolerance << ",";
             }
