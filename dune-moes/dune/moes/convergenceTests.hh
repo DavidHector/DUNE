@@ -118,7 +118,7 @@ void csnGenMinLap(const std::string filenameOut, const double tolerance = 1e-8, 
 }
 
 template <typename MAT, typename VEC>
-void csnGenMinLapNeu(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = -0.5, const size_t qrFrequency = 1)
+void csnGenMinLapNeu(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = -0.05, const size_t qrFrequency = 1)
 {
     const size_t lenNs = 5;
     size_t Ns[lenNs] = {144, 400, 900, 1600, 2500}; // Must be square numbers

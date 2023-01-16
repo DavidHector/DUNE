@@ -45,7 +45,7 @@ int main(int argc, char const *argv[])
     std::cout << "Complete." << std::endl;
 
     std::cout << "Benchmarking moes.computeGenMinMagnitudeApprox() on matrices with intersecting kernels... " << std::endl;
-    flopsSeqGenMinApproxFileRead<MAT, VEC>(fileA, fileB, outFile);
+    // flopsSeqGenMinApproxFileRead<MAT, VEC>(fileA, fileB, outFile);
     std::cout << "Complete." << std::endl;
 
     std::cout << "MT benchmarking moes.computeGenMinMagnitudeApprox() on matrices with intersecting kernels... " << std::endl;

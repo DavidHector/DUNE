@@ -137,9 +137,9 @@ int main(int argc, char const *argv[])
     size_t L, U, iterations;
     double LUflops;
     // moes.computeGenMinMagnitudeApprox(neumann, tolerance, moeseigenvecs, moeseigenvals, EVNumber + 8, 1, -1.1, 0.001, L, U, LUflops, iterations);
-    moes.computeGenMinMagnitude(neumann, tolerance, moeseigenvecs, moeseigenvals, EVNumber + 8, 1, -0.01, L, U, LUflops, iterations);
+    moes.computeGenMinMagnitude(neumann, tolerance, moeseigenvecs, moeseigenvals, EVNumber + 8, 1, -0.05, L, U, LUflops, iterations);
     // Should do the same as smallest EVs Iterative
-    arpack.computeGenNonSymShiftInvertMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.01);
+    arpack.computeGenNonSymShiftInvertMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.05);
     // arpack.computeStdNonSymMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.5);
     std::vector<VEC> redeigenvecs(eigenvecs.size() / 2, vec);
     for (size_t i = 0; i < redeigenvecs.size(); i++)
