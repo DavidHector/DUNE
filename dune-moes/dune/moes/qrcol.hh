@@ -2671,7 +2671,7 @@ void qrFixedBlockOptimizedDoubleUnique(std::unique_ptr<double[]> &Q, size_t numR
     delete[] udots;
 }
 
-void qrFixedBlockOptimizedDouble(std::shared_ptr<double[]> &Q, size_t numRows, size_t numCols, size_t blockSize, size_t uBlockSize)
+void qrFixedBlockOptimizedDouble(std::shared_ptr<double[]> &Q, size_t numRows, size_t numCols, size_t blockSize = 2, size_t uBlockSize = 1)
 {
     std::unique_ptr<Vec4d[]> norms(new Vec4d[2]);
     double currentNorm = 0.0;
@@ -3073,6 +3073,53 @@ void qrFixedBlockOptimizedDouble(std::shared_ptr<double[]> &Q, size_t numRows, s
             // end linear combination
         }
         // end orthogonalize following blocks
+    }
+}
+
+void qrNaiveQNaive(std::shared_ptr<double[]> &Q, size_t numRows, size_t numCols)
+{
+    double u, v, unorm;
+    double uv = 0.0;
+    size_t uIndex = 0;
+    size_t vIndex = 0;
+
+    for (size_t col = 0; col < numCols; col++)
+    {
+        unorm = 0.0;
+        for (size_t row = 0; row < numRows; row++)
+        {
+            uIndex = col * numRows + row;
+            u = Q[uIndex];
+            unorm += u * u;
+        }
+        for (size_t folCol = col + 1; folCol < numCols; folCol++)
+        {
+            // Dot product
+            uv = 0.0;
+            for (size_t row = 0; row < numRows; row++)
+            {
+                uIndex = col * numRows + row;
+                vIndex = folCol * numRows + row;
+                u = Q[uIndex];
+                v = Q[vIndex];
+                uv += u * v;
+            }
+
+            // linear combination
+            for (size_t row = 0; row < numRows; row++)
+            {
+                uIndex = col * numRows + row;
+                vIndex = folCol * numRows + row;
+                u = Q[uIndex];
+                Q[vIndex] -= uv / unorm * u;
+            }
+        }
+        // normalize current column
+        for (size_t row = 0; row < numRows; row++)
+        {
+            uIndex = col * numRows + row;
+            Q[uIndex] /= std::sqrt(unorm);
+        }
     }
 }
 

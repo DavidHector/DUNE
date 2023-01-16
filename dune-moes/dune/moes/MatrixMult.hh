@@ -625,4 +625,30 @@ void MultQSimpleNaiveQNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::un
     }
 }
 
+template <typename MT>
+void MultQSimpleNaiveQNaive(const MT &M, std::shared_ptr<double[]> &Qin, std::shared_ptr<double[]> &Qout, size_t rhsWidth, size_t N)
+{
+    double product, entryM;
+    size_t qinIndex, qoutIndex;
+    auto endRow = M.end();
+    for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+    {
+        auto endCol = (*rowIterator).end();
+        auto rowMatrix = rowIterator.index();
+        for (size_t qCol = 0; qCol < rhsWidth; qCol++)
+        {
+            qoutIndex = N * qCol + rowMatrix;
+            product = 0.0;
+            for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
+            {
+                auto colMatrix = colIterator.index();
+                qinIndex = N * qCol + colMatrix;
+                entryM = (*colIterator)[0][0];
+                product += entryM * Qin[qinIndex];
+            }
+            Qout[qoutIndex] = product;
+        }
+    }
+}
+
 #endif
