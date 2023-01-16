@@ -529,4 +529,29 @@ void printBCRS(const MAT &A)
     }
 }
 
+template <typename VEC>
+double printNormVec(const VEC &v)
+{
+    double norm = 0.0;
+    for (size_t i = 0; i < v.N(); i++)
+    {
+        norm += v[i][0] * v[i][0];
+    }
+    return std::sqrt(norm);
+}
+
+template <typename VEC>
+void normalizeVec(VEC &v)
+{
+    double norm = 0.0;
+    for (size_t i = 0; i < v.N(); i++)
+    {
+        norm += v[i][0] * v[i][0];
+    }
+    norm = std::sqrt(norm);
+    for (size_t i = 0; i < v.N(); i++)
+    {
+        v[i] = v[i][0] / norm;
+    }
+}
 #endif

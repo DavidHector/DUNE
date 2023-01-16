@@ -138,7 +138,10 @@ int main(int argc, char const *argv[])
     double LUflops;
     // moes.computeGenMinMagnitudeApprox(neumann, tolerance, moeseigenvecs, moeseigenvals, EVNumber + 8, 1, -1.1, 0.001, L, U, LUflops, iterations);
     moes.computeGenMinMagnitude(neumann, tolerance, moeseigenvecs, moeseigenvals, EVNumber + 8, 1, -0.05, L, U, LUflops, iterations);
+    //moes.computeGenMinMagnitudeIterations(neumann, moeseigenvecs, moeseigenvals, 180, EVNumber + 8, 1, -0.05);
+    std::cout << "Iterations: " << iterations << std::endl;
     // Should do the same as smallest EVs Iterative
+    //arpack.computeGenSymShiftInvertMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.05);
     arpack.computeGenNonSymShiftInvertMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.05);
     // arpack.computeStdNonSymMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.5);
     std::vector<VEC> redeigenvecs(eigenvecs.size() / 2, vec);
@@ -153,6 +156,12 @@ int main(int argc, char const *argv[])
     }
     // double csN = moes.columnSumNorm(redmoeseigenvecs, redeigenvecs);
     // double csN = moes.columnSumNorm(moeseigenvecs, eigenvecs);
+
+    for (size_t i = 0; i < eigenvecs.size(); i++)
+    {
+        normalizeVec(eigenvecs[i]);
+    }
+
     double csN = moes.columnSumNorm(moeseigenvecs, eigenvecs);
     double csNAlt = moes.columnSumNormAlt(moeseigenvecs, eigenvecs);
     std::cout << std::endl
@@ -169,21 +178,19 @@ int main(int argc, char const *argv[])
         std::cout << eigenvals[i] << std::endl;
     }
 
-    /*
     std::cout << std::endl
               << "The smallest " << EVNumber << " moes Eigenvectors are: " << std::endl;
     for (size_t i = 0; i < EVNumber; i++)
     {
-        std::cout << moeseigenvecs[i] << std::endl;
+        std::cout << printNormVec(moeseigenvecs[i]) << std::endl;
     }
 
     std::cout << std::endl
               << "The smallest " << EVNumber << " arpack Eigenvecs are: " << std::endl;
     for (size_t i = 0; i < EVNumber; i++)
     {
-        std::cout << eigenvecs[i] << std::endl;
+        std::cout << printNormVec(eigenvecs[i]) << std::endl;
     }
-    */
 
     std::cout << "The column sum norm is: " << csN << std::endl; // What da fuck, ich kann nicht die exakt gleichen Vektoren haben und was anderes raus kriegen.
     std::cout << "The csNAlt is: " << csNAlt << std::endl;

@@ -148,6 +148,10 @@ void csnGenMinLapNeu(const std::string filenameOut, const double tolerance = 1e-
             std::vector<double> moeslambdas(rhsWidths[irhsW] + 8, 0.0);
             std::vector<double> arlambdas(rhsWidths[irhsW], 0.0);
             arpack.computeGenNonSymShiftInvertMinMagnitude(B, tolerance, arevs, arlambdas, sigma);
+            for (size_t i = 0; i < arevs.size(); i++)
+            {
+                normalizeVec(arevs[i]);
+            }
             // arpack.computeGenSymShiftInvertMinMagnitude(B, tolerance, arevs, arlambdas, sigma);
             // int arpackits = arpack.getIterationCount(); // Get Arpack iterations
             std::cout << "rhsWidth = " << rhsWidths[irhsW] << std::endl;
