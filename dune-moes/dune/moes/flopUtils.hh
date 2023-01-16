@@ -310,7 +310,7 @@ void flopsGSAutoST(const std::string filenameOut)
 {
     const int lenN = 7;
     const int lenrhsWidth = 8;
-    size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 1000000};
+    size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 200000};
     size_t repetitions[lenN] = {500, 100, 50, 10, 10, 1, 1};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
     std::ofstream outputFile;
@@ -318,6 +318,7 @@ void flopsGSAutoST(const std::string filenameOut)
     outputFile << "N, rhsWidth, repetitions, GFLOPS, GFLOPSNaive";
     for (size_t i = 0; i < lenN; i++)
     {
+        std::cout << "N = " << Ns[i] << std::endl;
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
             auto start = std::chrono::high_resolution_clock::now();
@@ -345,7 +346,7 @@ void flopsGSAutoMT(const std::string filenameOut)
 {
     const int lenN = 7;
     const int lenrhsWidth = 8;
-    size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 1000000};
+    size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 200000};
     size_t repetitions[lenN] = {500, 100, 50, 10, 10, 1, 1};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
     const size_t lenThreadCounts = 6;
@@ -355,6 +356,7 @@ void flopsGSAutoMT(const std::string filenameOut)
     outputFile << "N, rhsWidth, threadCount, repetitions, GFLOPS, GFLOPSNaive,";
     for (size_t i = 0; i < lenN; i++)
     {
+        std::cout << "N = " << Ns[i] << std::endl;
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
             for (size_t tC = 0; tC < lenThreadCounts; tC++)
@@ -439,9 +441,9 @@ void flopsMatmulST(const std::string filenameOut)
     const int BS = 1;
     typedef Dune::FieldMatrix<double, BS, BS> MatrixBlock;
     typedef Dune::BCRSMatrix<MatrixBlock> BCRSMat;
-    const int lenN = 5;
+    const int lenN = 6;
     const int lenrhsWidth = 8;
-    size_t Ns[lenN] = {10000, 40000, 160000, 490000, 1000000};
+    size_t Ns[lenN] = {10000, 40000, 90000, 160000, 490000, 1000000};
     size_t repetitions[lenN] = {50, 10, 5, 1, 1};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
     std::ofstream outputFile;
@@ -449,6 +451,7 @@ void flopsMatmulST(const std::string filenameOut)
     outputFile << "N, rhsWidth, repetitions, GFIdentity, GFIdentityNaive, GFLaplacian, GFLaplacianNaive";
     for (size_t i = 0; i < lenN; i++)
     {
+        std::cout << "N = " << Ns[i] << std::endl;
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
             BCRSMat identity;
@@ -513,6 +516,7 @@ void flopsMatmulMT(const std::string filenameOut)
     outputFile << "N, rhsWidth, repetitions, threadCount, GFIdentity, GFIdentityNaive, GFLaplacian, GFLaplacianNaive";
     for (size_t i = 0; i < lenN; i++)
     {
+        std::cout << "N = " << Ns[i] << std::endl;
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
             BCRSMat identity;
