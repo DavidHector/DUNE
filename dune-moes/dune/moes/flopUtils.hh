@@ -311,7 +311,7 @@ void flopsGSAutoST(const std::string filenameOut)
     const int lenN = 7;
     const int lenrhsWidth = 8;
     size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 200000};
-    size_t repetitions[lenrhsWidth] = {500, 100, 50, 10, 1, 1, 1, 1};
+    size_t repetitions[lenrhsWidth] = {500, 100, 50, 10, 5, 1, 1, 1};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
     std::ofstream outputFile;
     outputFile.open(filenameOut);
