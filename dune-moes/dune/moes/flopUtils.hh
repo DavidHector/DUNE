@@ -362,6 +362,7 @@ void flopsGSAutoMT(const std::string filenameOut)
             for (size_t tC = 0; tC < lenThreadCounts; tC++)
             {
                 std::vector<std::thread> threads;
+                std::vector<std::thread> threadsNaive;
                 // Vectorized
                 auto start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
@@ -371,7 +372,6 @@ void flopsGSAutoMT(const std::string filenameOut)
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
                     threads[t].join();
-                    threads.pop_back();
                 }
                 auto stop = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
@@ -382,12 +382,11 @@ void flopsGSAutoMT(const std::string filenameOut)
                 start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads.push_back(std::thread(singleThreadGSNaive, std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[j])));
+                    threadsNaive.push_back(std::thread(singleThreadGSNaive, std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[j])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads[t].join();
-                    threads.pop_back();
+                    threadsNaive[t].join();
                 }
                 stop = std::chrono::high_resolution_clock::now();
                 duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
@@ -526,17 +525,19 @@ void flopsMatmulMT(const std::string filenameOut)
 
             for (size_t tC = 0; tC < lenThreadCounts; tC++)
             {
-                std::vector<std::thread> threads;
+                std::vector<std::thread> threadsIdentity;
+                std::vector<std::thread> threadsIdentityNaive;
+                std::vector<std::thread> threadsLaplacian;
+                std::vector<std::thread> threadsLaplacianNaive;
                 // matrix multiplication identity matrix, vectorized
                 auto start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads.push_back(std::thread(singleThreadMatmul<BCRSMat>, std::ref(identity), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
+                    threadsIdentity.push_back(std::thread(singleThreadMatmul<BCRSMat>, std::ref(identity), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads[t].join();
-                    threads.pop_back();
+                    threadsIdentity[t].join();
                 }
                 auto stop = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
@@ -547,12 +548,11 @@ void flopsMatmulMT(const std::string filenameOut)
                 start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads.push_back(std::thread(singleThreadMatmulNaive<BCRSMat>, std::ref(identity), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
+                    threadsIdentityNaive.push_back(std::thread(singleThreadMatmulNaive<BCRSMat>, std::ref(identity), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads[t].join();
-                    threads.pop_back();
+                    threadsIdentityNaive[t].join();
                 }
                 stop = std::chrono::high_resolution_clock::now();
                 duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
@@ -563,12 +563,11 @@ void flopsMatmulMT(const std::string filenameOut)
                 start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads.push_back(std::thread(singleThreadMatmul<BCRSMat>, std::ref(laplacian), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
+                    threadsLaplacian.push_back(std::thread(singleThreadMatmul<BCRSMat>, std::ref(laplacian), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads[t].join();
-                    threads.pop_back();
+                    threadsLaplacian[t].join();
                 }
                 stop = std::chrono::high_resolution_clock::now();
                 duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
@@ -579,12 +578,11 @@ void flopsMatmulMT(const std::string filenameOut)
                 start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads.push_back(std::thread(singleThreadMatmulNaive<BCRSMat>, std::ref(laplacian), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
+                    threadsLaplacianNaive.push_back(std::thread(singleThreadMatmulNaive<BCRSMat>, std::ref(laplacian), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads[t].join();
-                    threads.pop_back();
+                    threadsLaplacianNaive[t].join();
                 }
                 stop = std::chrono::high_resolution_clock::now();
                 duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
