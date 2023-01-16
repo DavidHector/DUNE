@@ -311,7 +311,7 @@ void flopsGSAutoST(const std::string filenameOut)
     const int lenN = 7;
     const int lenrhsWidth = 8;
     size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 200000};
-    size_t repetitions[lenN] = {500, 100, 50, 10, 10, 1, 1};
+    size_t repetitions[lenrhsWidth] = {500, 100, 50, 10, 1, 1, 1, 1};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
     std::ofstream outputFile;
     outputFile.open(filenameOut);
@@ -322,21 +322,21 @@ void flopsGSAutoST(const std::string filenameOut)
         for (size_t j = 0; j < lenrhsWidth; j++)
         {
             auto start = std::chrono::high_resolution_clock::now();
-            singleThreadGS(Ns[i], rhsWidths[j], repetitions[i]);
+            singleThreadGS(Ns[i], rhsWidths[j], repetitions[j]);
             auto stop = std::chrono::high_resolution_clock::now();
             auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-            double averageDuration = duration.count() / repetitions[i];
+            double averageDuration = duration.count() / repetitions[j];
             double gfGS = flopsGS(Ns[i], rhsWidths[j]) / averageDuration;
 
             start = std::chrono::high_resolution_clock::now();
-            singleThreadGSNaive(Ns[i], rhsWidths[j], repetitions[i]);
+            singleThreadGSNaive(Ns[i], rhsWidths[j], repetitions[j]);
             stop = std::chrono::high_resolution_clock::now();
             duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-            averageDuration = duration.count() / repetitions[i];
+            averageDuration = duration.count() / repetitions[j];
             double gfGSNaive = flopsGS(Ns[i], rhsWidths[j]) / averageDuration;
 
             outputFile << "\n"
-                       << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << gfGS << "," << gfGSNaive << ",";
+                       << Ns[i] << "," << rhsWidths[j] << "," << repetitions[j] << "," << gfGS << "," << gfGSNaive << ",";
         }
     }
     outputFile.close();
@@ -347,7 +347,7 @@ void flopsGSAutoMT(const std::string filenameOut)
     const int lenN = 7;
     const int lenrhsWidth = 8;
     size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 200000};
-    size_t repetitions[lenN] = {500, 100, 50, 10, 10, 1, 1};
+    size_t repetitions[lenrhsWidth] = {500, 100, 50, 10, 1, 1, 1, 1};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
     const size_t lenThreadCounts = 6;
     size_t threadCounts[lenThreadCounts] = {4, 8, 16, 32, 64, 128};
@@ -366,7 +366,7 @@ void flopsGSAutoMT(const std::string filenameOut)
                 auto start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads.push_back(std::thread(singleThreadGS, std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
+                    threads.push_back(std::thread(singleThreadGS, std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[j])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
@@ -375,14 +375,14 @@ void flopsGSAutoMT(const std::string filenameOut)
                 }
                 auto stop = std::chrono::high_resolution_clock::now();
                 auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-                double averageDuration = duration.count() / (repetitions[i] * threadCounts[tC]);
+                double averageDuration = duration.count() / (repetitions[j] * threadCounts[tC]);
                 double gfGS = flopsGS(Ns[i], rhsWidths[j]) / averageDuration;
 
                 // Non-vectorized
                 start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads.push_back(std::thread(singleThreadGSNaive, std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[i])));
+                    threads.push_back(std::thread(singleThreadGSNaive, std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[j])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
@@ -391,11 +391,11 @@ void flopsGSAutoMT(const std::string filenameOut)
                 }
                 stop = std::chrono::high_resolution_clock::now();
                 duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-                averageDuration = duration.count() / (repetitions[i] * threadCounts[tC]);
+                averageDuration = duration.count() / (repetitions[j] * threadCounts[tC]);
                 double gfGSNaive = flopsGS(Ns[i], rhsWidths[j]) / averageDuration;
 
                 outputFile << "\n"
-                           << Ns[i] << "," << rhsWidths[j] << "," << threadCounts[tC] << "," << repetitions[i] << "," << gfGS << "," << gfGSNaive << ",";
+                           << Ns[i] << "," << rhsWidths[j] << "," << threadCounts[tC] << "," << repetitions[j] << "," << gfGS << "," << gfGSNaive << ",";
             }
         }
     }
