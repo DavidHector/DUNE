@@ -136,7 +136,7 @@ void csnGenMinLapNeu(const std::string filenameOut, const double tolerance = 1e-
         // setupLaplacianWithBoundary(A, std::sqrt(Ns[iN]));
         setupLaplacianWithBoundary(A, std::sqrt(Ns[iN]));
         // setupLaplacianWithoutBoundary(B, std::sqrt(Ns[iN]));
-        setupLaplacianWithoutBoundary(B, Ns[iN]);
+        setupLaplacianWithoutBoundary(B, std::sqrt(Ns[iN]));
         VEC vec(Ns[iN]);
         vec = 0.0;
         ArpackMLGeneo::ArPackPlusPlus_Algorithms<MAT, VEC> arpack(A);

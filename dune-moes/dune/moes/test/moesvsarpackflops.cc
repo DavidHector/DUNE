@@ -41,7 +41,7 @@ int main(int argc, char const *argv[])
     std::string genMinLapSeqTimingOutFile = "laplacian_identity_seq_gen_timing.csv";
 
     std::cout << "Benchmarking moes.computeGenMinMagnitude() vs arpack (timing) on matrices with non-intersecting kernels..." << std::endl;
-    flopsSeqGenMinMagLap<MAT, VEC>(genMinLapSeqTimingOutFile);
+    // flopsSeqGenMinMagLap<MAT, VEC>(genMinLapSeqTimingOutFile);
     std::cout << "Complete." << std::endl;
 
     std::cout << "Benchmarking moes.computeGenMinMagnitudeApprox() on matrices with intersecting kernels... " << std::endl;
@@ -49,15 +49,15 @@ int main(int argc, char const *argv[])
     std::cout << "Complete." << std::endl;
 
     std::cout << "MT benchmarking moes.computeGenMinMagnitudeApprox() on matrices with intersecting kernels... " << std::endl;
-    flopsParGenMinApproxFileRead<MAT, VEC>(fileA, fileB, MToutFile);
+    // flopsParGenMinApproxFileRead<MAT, VEC>(fileA, fileB, MToutFile);
     std::cout << "Complete." << std::endl;
 
     std::cout << "Column Sum Norm vs Arpack using moes.computeGenMinMagnitudeApprox() on matrices with intersecting kernels... " << std::endl;
-    csnGenMinApprox<MAT, VEC>(fileA, fileB, genMinApproxcsnOutFile);
+    // csnGenMinApprox<MAT, VEC>(fileA, fileB, genMinApproxcsnOutFile);
     std::cout << "Complete." << std::endl;
 
     std::cout << "Column Sum Norm vs Arpack using moes.computeGenMinMagnitude() on matrices with non-intersecting kernels (laplacian and identity)... " << std::endl;
-    csnGenMinLap<MAT, VEC>(genMinLapcsnOutFile);
+    // csnGenMinLap<MAT, VEC>(genMinLapcsnOutFile);
     std::cout << "Complete." << std::endl;
 
     std::cout << "Column Sum Norm vs Arpack using moes.computeGenMinMagnitude() on matrices with non-intersecting kernels (laplacian and neumann(DLD))... " << std::endl;
