@@ -444,7 +444,7 @@ void flopsMatmulST(const std::string filenameOut)
     const int lenN = 6;
     const int lenrhsWidth = 8;
     size_t Ns[lenN] = {10000, 40000, 90000, 160000, 490000, 1000000};
-    size_t repetitions[lenN] = {50, 10, 5, 1, 1};
+    size_t repetitions[lenN] = {50, 10, 5, 1, 1, 1};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
     double gfIdentity, gfIdentityNaive, gfLaplacian, gfLaplacianNaive;
     std::ofstream outputFile;
@@ -458,7 +458,9 @@ void flopsMatmulST(const std::string filenameOut)
             BCRSMat identity;
             BCRSMat laplacian;
             setupIdentity(identity, Ns[i]);
+            std::cout << "setupIdentity" << std::endl;
             setupLaplacian(laplacian, std::sqrt(Ns[i]));
+            std::cout << "setupLaplacian" << std::endl;
 
             // matrix multiplication identity matrix, vectorized
             singleThreadMatmul(identity, rhsWidths[j], repetitions[i], gfIdentity);
