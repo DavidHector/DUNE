@@ -210,7 +210,7 @@ void flopsParGenMinApproxFileRead(const std::string filenameA, const std::string
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
         flops = flopsCompGenMinMagIterationSum(iterations, N, rhsWidth, qrFrequency, L, U, Annz) + repetitions[i] * threadCounts[i] * LUflops;
-        gflops = flops / duration;
+        gflops = flops / duration.count();
         outputFile << "\n"
                    << rhsWidth << "," << repetitions[i] << "," << iterations << "," << gflops << "," << threadCounts[i] << ",";
     }
