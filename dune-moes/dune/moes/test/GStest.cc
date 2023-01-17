@@ -26,7 +26,7 @@ int main(int argc, char const *argv[])
     std::cout << "Finished." << std::endl;
 
     std::cout << "Benchmarking the Matrix Multiplication (single Thread)..." << std::endl;
-    // flopsMatmulST(MatMulSTFile);
+    flopsMatmulST(MatMulSTFile);
     std::cout << "Finished." << std::endl;
 
     std::cout << "Benchmarking the Matrix Multiplication (multithreaded)..." << std::endl;

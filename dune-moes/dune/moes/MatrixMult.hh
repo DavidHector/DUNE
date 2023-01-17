@@ -600,17 +600,17 @@ void MultQSimpleNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_p
     No vectorization
 */
 template <typename MT>
-void MultQSimpleNaiveQNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, size_t rhsWidth, size_t N)
+void MultQSimpleNaiveQNaive(const MT &M, const std::unique_ptr<double[]> &Qin, std::unique_ptr<double[]> &Qout, size_t rhsWidth, size_t N)
 {
     double product, entryM;
     size_t qinIndex, qoutIndex;
     auto endRow = M.end();
-    for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+    for (size_t qCol = 0; qCol < rhsWidth; qCol++)
     {
-        auto endCol = (*rowIterator).end();
-        auto rowMatrix = rowIterator.index();
-        for (size_t qCol = 0; qCol < rhsWidth; qCol++)
+        for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
         {
+            auto endCol = (*rowIterator).end();
+            auto rowMatrix = rowIterator.index();
             qoutIndex = N * qCol + rowMatrix;
             product = 0.0;
             for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
@@ -631,12 +631,12 @@ void MultQSimpleNaiveQNaive(const MT &M, const std::shared_ptr<double[]> &Qin, s
     double product, entryM;
     size_t qinIndex, qoutIndex;
     auto endRow = M.end();
-    for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
+    for (size_t qCol = 0; qCol < rhsWidth; qCol++)
     {
-        auto endCol = (*rowIterator).end();
-        auto rowMatrix = rowIterator.index();
-        for (size_t qCol = 0; qCol < rhsWidth; qCol++)
+        for (auto rowIterator = M.begin(); rowIterator != endRow; rowIterator++)
         {
+            auto endCol = (*rowIterator).end();
+            auto rowMatrix = rowIterator.index();
             qoutIndex = N * qCol + rowMatrix;
             product = 0.0;
             for (auto colIterator = (*rowIterator).begin(); colIterator != endCol; colIterator++)
