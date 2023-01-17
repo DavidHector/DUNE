@@ -18,11 +18,11 @@ int main(int argc, char const *argv[])
     std::string MatMulMTFile = "MatMulMT.csv";
 
     std::cout << "Benchmarking the Gram-Schmidt-Process (single Thread)..." << std::endl;
-    flopsGSAutoST(gsSTFile);
+    // flopsGSAutoST(gsSTFile);
     std::cout << "Finished." << std::endl;
 
     std::cout << "Benchmarking the Gram-Schmidt-Process (multithreaded)..." << std::endl;
-    flopsGSAutoMT(gsMTFile);
+    // flopsGSAutoMT(gsMTFile);
     std::cout << "Finished." << std::endl;
 
     std::cout << "Benchmarking the Matrix Multiplication (single Thread)..." << std::endl;

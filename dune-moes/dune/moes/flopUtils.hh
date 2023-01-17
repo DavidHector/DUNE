@@ -344,11 +344,11 @@ void flopsGSAutoST(const std::string filenameOut)
 
 void flopsGSAutoMT(const std::string filenameOut)
 {
-    const int lenN = 7;
-    const int lenrhsWidth = 8;
-    size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 200000};
-    size_t repetitions[lenrhsWidth] = {5, 1, 1, 1, 1, 1, 1, 1};
-    size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
+    const int lenN = 2;
+    const int lenrhsWidth = 6;
+    size_t Ns[lenN] = {1000, 50000}; // {1000, 5000, 10000, 20000, 50000, 100000, 200000};
+    size_t repetitions[lenrhsWidth] = {5, 1, 1, 1, 1, 1};
+    size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256};
     const size_t lenThreadCounts = 6;
     size_t threadCounts[lenThreadCounts] = {4, 8, 16, 32, 64, 128};
     std::ofstream outputFile;
