@@ -626,7 +626,7 @@ void MultQSimpleNaiveQNaive(const MT &M, std::unique_ptr<double[]> &Qin, std::un
 }
 
 template <typename MT>
-void MultQSimpleNaiveQNaive(const MT &M, std::shared_ptr<double[]> &Qin, std::shared_ptr<double[]> &Qout, size_t rhsWidth, size_t N)
+void MultQSimpleNaiveQNaive(const MT &M, const std::shared_ptr<double[]> &Qin, std::shared_ptr<double[]> &Qout, size_t rhsWidth, size_t N)
 {
     double product, entryM;
     size_t qinIndex, qoutIndex;

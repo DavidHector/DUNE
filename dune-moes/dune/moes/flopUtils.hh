@@ -342,15 +342,32 @@ void flopsGSAutoST(const std::string filenameOut)
     outputFile.close();
 }
 
+void singleThreadGSMT(std::shared_ptr<double[]> &Q, const size_t &N, const size_t &W, const size_t &repetitions)
+{
+    for (size_t k = 0; k < repetitions; k++)
+    {
+        qrFixedBlockOptimizedDouble(Q, N, W / 8);
+    }
+}
+
+void singleThreadGSNaiveMT(std::shared_ptr<double[]> &Q, const size_t &N, const size_t &W, const size_t &repetitions)
+{
+    for (size_t k = 0; k < repetitions; k++)
+    {
+        qrNaiveQNaive(Q, N, W);
+    }
+}
+
 void flopsGSAutoMT(const std::string filenameOut)
 {
-    const int lenN = 2;
+    const int lenN = 7; // 7
     const int lenrhsWidth = 6;
-    size_t Ns[lenN] = {1000, 50000}; // {1000, 5000, 10000, 20000, 50000, 100000, 200000};
+    size_t Ns[lenN] = {1000, 5000, 10000, 20000, 50000, 100000, 200000};
     size_t repetitions[lenrhsWidth] = {5, 1, 1, 1, 1, 1};
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256};
     const size_t lenThreadCounts = 6;
     size_t threadCounts[lenThreadCounts] = {4, 8, 16, 32, 64, 128};
+    double gfGS, gfGSNaive;
     std::ofstream outputFile;
     outputFile.open(filenameOut);
     outputFile << "N, rhsWidth, threadCount, repetitions, GFLOPS, GFLOPSNaive,";
@@ -363,29 +380,46 @@ void flopsGSAutoMT(const std::string filenameOut)
             {
                 std::vector<std::thread> threads;
                 std::vector<std::thread> threadsNaive;
-                std::vector<double> gfGS(threadCounts[tC], 0.0);
-                std::vector<double> gfGSNaive(threadCounts[tC], 0.0);
-                // Vectorized
+                // Initialize Q
+                std::vector<std::shared_ptr<double[]>> Qs(threadCounts[tC], std::shared_ptr<double[]>(new double[Ns[i] * rhsWidths[j]]));
+                std::vector<std::shared_ptr<double[]>> QsNaive(threadCounts[tC], std::shared_ptr<double[]>(new double[Ns[i] * rhsWidths[j]]));
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threads.push_back(std::thread(singleThreadGS, std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[j]), std::ref(gfGS[t])));
+                    fillMatrixRandom(Qs[t], Ns[i] * rhsWidths[j]);
+                    fillMatrixRandom(QsNaive[t], Ns[i] * rhsWidths[j]);
+                }
+
+                // Vectorized
+                auto start = std::chrono::high_resolution_clock::now();
+                for (size_t t = 0; t < threadCounts[tC]; t++)
+                {
+                    threads.push_back(std::thread(singleThreadGSMT, std::ref(Qs[t]), std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[j])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
                     threads[t].join();
                 }
+                auto stop = std::chrono::high_resolution_clock::now();
+                auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                double averageDuration = duration.count() / repetitions[j];
+                gfGS = flopsGS(Ns[i], rhsWidths[j]) * threadCounts[tC] / averageDuration;
 
                 // Non-vectorized
+                start = std::chrono::high_resolution_clock::now();
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
-                    threadsNaive.push_back(std::thread(singleThreadGSNaive, std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[j]), std::ref(gfGSNaive[t])));
+                    threadsNaive.push_back(std::thread(singleThreadGSNaiveMT, std::ref(QsNaive[t]), std::ref(Ns[i]), std::ref(rhsWidths[j]), std::ref(repetitions[j])));
                 }
                 for (size_t t = 0; t < threadCounts[tC]; t++)
                 {
                     threadsNaive[t].join();
                 }
+                stop = std::chrono::high_resolution_clock::now();
+                duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+                averageDuration = duration.count() / repetitions[j];
+                gfGSNaive = flopsGS(Ns[i], rhsWidths[j]) * threadCounts[tC] / averageDuration;
                 outputFile << "\n"
-                           << Ns[i] << "," << rhsWidths[j] << "," << threadCounts[tC] << "," << repetitions[j] << "," << vecAvg(gfGS) << "," << vecAvg(gfGSNaive) << ",";
+                           << Ns[i] << "," << rhsWidths[j] << "," << threadCounts[tC] << "," << repetitions[j] << "," << gfGS << "," << gfGSNaive << ",";
             }
         }
     }
@@ -436,6 +470,83 @@ void singleThreadMatmulNaive(const MAT &A, const size_t &W, const size_t &repeti
     gfMatMulNaive = flopsMatmul(A, W) / averageDuration;
 }
 
+template <typename MAT>
+void multiThreadedMatmulST(const MAT &A, const std::shared_ptr<double[]> &Q, std::shared_ptr<double[]> &AQ, const size_t W, const size_t N, const size_t &repetitions)
+{
+    for (size_t k = 0; k < repetitions; k++)
+    {
+        MultQSimple<MAT>(A, Q, AQ, W / 8, N);
+    }
+}
+
+template <typename MAT>
+void multiThreadedMatmulSTNaive(const MAT &A, const std::shared_ptr<double[]> &Q, std::shared_ptr<double[]> &AQ, const size_t W, const size_t N, const size_t &repetitions)
+{
+    for (size_t k = 0; k < repetitions; k++)
+    {
+        MultQSimpleNaiveQNaive<MAT>(A, Q, AQ, W, N);
+    }
+}
+
+// Vectorized
+template <typename MAT>
+void multiThreadedMatmul(const MAT &A, const size_t &threadCount, const size_t &W, const size_t &repetitions, double &gfMatMul)
+{
+    const size_t N = A.N();
+    std::vector<std::thread> threads;
+    // Initialize Q
+    std::vector<std::shared_ptr<double[]>> Qs(threadCount, std::shared_ptr<double[]>(new double[N * W]));
+    std::vector<std::shared_ptr<double[]>> AQs(threadCount, std::shared_ptr<double[]>(new double[N * W]));
+    for (size_t t = 0; t < threadCount; t++)
+    {
+        fillMatrixRandom(Qs[t], N * W);
+    }
+
+    // Vectorized
+    auto start = std::chrono::high_resolution_clock::now();
+    for (size_t t = 0; t < threadCount; t++)
+    {
+        threads.push_back(std::thread(multiThreadedMatmulST<MAT>, std::ref(A), std::ref(Qs[t]), std::ref(AQs[t]), std::ref(W), std::ref(N), std::ref(repetitions)));
+    }
+    for (size_t t = 0; t < threadCount; t++)
+    {
+        threads[t].join();
+    }
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+    double averageDuration = duration.count() / repetitions;
+    gfMatMul = flopsMatmul(A, W) * threadCount / averageDuration;
+}
+
+template <typename MAT>
+void multiThreadedMatmulNaive(const MAT &A, const size_t &threadCount, const size_t &W, const size_t &repetitions, double &gfMatMul)
+{
+    const size_t N = A.N();
+    std::vector<std::thread> threads;
+    // Initialize Q
+    std::vector<std::shared_ptr<double[]>> Qs(threadCount, std::shared_ptr<double[]>(new double[N * W]));
+    std::vector<std::shared_ptr<double[]>> AQs(threadCount, std::shared_ptr<double[]>(new double[N * W]));
+    for (size_t t = 0; t < threadCount; t++)
+    {
+        fillMatrixRandom(Qs[t], N * W);
+    }
+
+    // Vectorized
+    auto start = std::chrono::high_resolution_clock::now();
+    for (size_t t = 0; t < threadCount; t++)
+    {
+        threads.push_back(std::thread(multiThreadedMatmulSTNaive<MAT>, std::ref(A), std::ref(Qs[t]), std::ref(AQs[t]), std::ref(W), std::ref(N), std::ref(repetitions)));
+    }
+    for (size_t t = 0; t < threadCount; t++)
+    {
+        threads[t].join();
+    }
+    auto stop = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
+    double averageDuration = duration.count() / repetitions;
+    gfMatMul = flopsMatmul(A, W) * threadCount / averageDuration;
+}
+
 void flopsMatmulST(const std::string filenameOut)
 {
     const int BS = 1;
@@ -458,9 +569,7 @@ void flopsMatmulST(const std::string filenameOut)
             BCRSMat identity;
             BCRSMat laplacian;
             setupIdentity(identity, Ns[i]);
-            std::cout << "setupIdentity" << std::endl;
             setupLaplacian(laplacian, std::sqrt(Ns[i]));
-            std::cout << "setupLaplacian" << std::endl;
 
             // matrix multiplication identity matrix, vectorized
             singleThreadMatmul(identity, rhsWidths[j], repetitions[i], gfIdentity);
@@ -493,6 +602,7 @@ void flopsMatmulMT(const std::string filenameOut)
     size_t rhsWidths[lenrhsWidth] = {8, 16, 32, 64, 128, 256, 512, 1024};
     const size_t lenThreadCounts = 6;
     size_t threadCounts[lenThreadCounts] = {4, 8, 16, 32, 64, 128};
+    double gfIdentity, gfIdentityNaive, gfLaplacian, gfLaplacianNaive;
 
     std::ofstream outputFile;
     outputFile.open(filenameOut);
@@ -509,56 +619,13 @@ void flopsMatmulMT(const std::string filenameOut)
 
             for (size_t tC = 0; tC < lenThreadCounts; tC++)
             {
-                std::vector<std::thread> threadsIdentity;
-                std::vector<std::thread> threadsIdentityNaive;
-                std::vector<std::thread> threadsLaplacian;
-                std::vector<std::thread> threadsLaplacianNaive;
-                std::vector<double> gfIdentity(threadCounts[tC], 0.0);
-                std::vector<double> gfIdentityNaive(threadCounts[tC], 0.0);
-                std::vector<double> gfLaplacian(threadCounts[tC], 0.0);
-                std::vector<double> gfLaplacianNaive(threadCounts[tC], 0.0);
-                // matrix multiplication identity matrix, vectorized
-                for (size_t t = 0; t < threadCounts[tC]; t++)
-                {
-                    threadsIdentity.push_back(std::thread(singleThreadMatmul<BCRSMat>, std::ref(identity), std::ref(rhsWidths[j]), std::ref(repetitions[i]), std::ref(gfIdentity[t])));
-                }
-                for (size_t t = 0; t < threadCounts[tC]; t++)
-                {
-                    threadsIdentity[t].join();
-                }
-
-                // matrix multiplication identity matrix, naive
-                for (size_t t = 0; t < threadCounts[tC]; t++)
-                {
-                    threadsIdentityNaive.push_back(std::thread(singleThreadMatmulNaive<BCRSMat>, std::ref(identity), std::ref(rhsWidths[j]), std::ref(repetitions[i]), std::ref(gfIdentityNaive[t])));
-                }
-                for (size_t t = 0; t < threadCounts[tC]; t++)
-                {
-                    threadsIdentityNaive[t].join();
-                }
-
-                // matrix multiplication laplacian matrix, vectorized
-                for (size_t t = 0; t < threadCounts[tC]; t++)
-                {
-                    threadsLaplacian.push_back(std::thread(singleThreadMatmul<BCRSMat>, std::ref(laplacian), std::ref(rhsWidths[j]), std::ref(repetitions[i]), std::ref(gfLaplacian[t])));
-                }
-                for (size_t t = 0; t < threadCounts[tC]; t++)
-                {
-                    threadsLaplacian[t].join();
-                }
-
-                // matrix multiplication laplacian matrix, naive
-                for (size_t t = 0; t < threadCounts[tC]; t++)
-                {
-                    threadsLaplacianNaive.push_back(std::thread(singleThreadMatmulNaive<BCRSMat>, std::ref(laplacian), std::ref(rhsWidths[j]), std::ref(repetitions[i]), std::ref(gfLaplacianNaive[t])));
-                }
-                for (size_t t = 0; t < threadCounts[tC]; t++)
-                {
-                    threadsLaplacianNaive[t].join();
-                }
+                multiThreadedMatmul<BCRSMat>(identity, tC, rhsWidths[j], repetitions[i], gfIdentity);
+                multiThreadedMatmulNaive<BCRSMat>(identity, tC, rhsWidths[j], repetitions[i], gfIdentityNaive);
+                multiThreadedMatmul<BCRSMat>(laplacian, tC, rhsWidths[j], repetitions[i], gfLaplacian);
+                multiThreadedMatmulNaive<BCRSMat>(laplacian, tC, rhsWidths[j], repetitions[i], gfLaplacianNaive);
 
                 outputFile << "\n"
-                           << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << threadCounts[tC] << "," << vecAvg(gfIdentity) << "," << vecAvg(gfIdentityNaive) << "," << vecAvg(gfLaplacian) << "," << vecAvg(gfLaplacianNaive) << ",";
+                           << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << threadCounts[tC] << "," << gfIdentity << "," << gfIdentityNaive << "," << gfLaplacian << "," << gfLaplacianNaive << ",";
             }
         }
     }
