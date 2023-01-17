@@ -36,6 +36,7 @@ double flopsCompGenMinMagIterationSum(size_t iterations, size_t N, size_t nev, s
     double sparseMatmul = 2.0 * nevD * MD - nevD * ND;
     double getEvsflops = 4.0 * nevD * MD + 2.0 * nevD * ND;
     double total = gSflops + inverseFlops + sparseMatmul + getEvsflops;
+    total *= iterationsD;
     return total;
 }
 
@@ -144,6 +145,16 @@ void singleThreadGenMinApprox(MAT &A, MAT &B, const double &epsilon, const int &
     moesST.computeGenMinMagnitudeApprox(B, epsilon, eigenvecs, eigenvals, nev, qrFrequency, sigma, alpha, L, U, LUflops, iterations);
 }
 
+template <typename T>
+T vecSum(const std::vector<T> &v)
+{
+    T sum = 0;
+    for (auto &&i : v)
+    {
+        sum += i;
+    }
+    return sum;
+}
 /**
  * @brief Flop measurement for parallely running the genminapprox algorithm when reading from file, solves the problem (A - \sigma B + \alpha I) x = (\lambda - \sigma) B x for smalles evs 
  * 
@@ -169,7 +180,7 @@ void flopsParGenMinApproxFileRead(const std::string filenameA, const std::string
     const size_t lenThreadCounts = 6;
     size_t threadCounts[lenThreadCounts] = {4, 8, 16, 32, 64, 128};
     size_t repetitions[lenThreadCounts] = {100, 50, 10, 10, 1, 1};
-    size_t iterations, iterationstmp, L, U, Annz;
+    size_t iterations, L, U, Annz;
     Annz = A.nonzeroes();
     double gflops, flops;
     double LUflops;
@@ -180,29 +191,26 @@ void flopsParGenMinApproxFileRead(const std::string filenameA, const std::string
 
     for (size_t i = 0; i < lenThreadCounts; i++)
     {
-        iterationstmp = 0.0;
+        iterations = 0;
         auto start = std::chrono::high_resolution_clock::now();
         for (size_t j = 0; j < repetitions[i]; j++)
         {
             std::vector<std::thread> threads;
-            std::vector<size_t> iterations(threadCounts[i], 0);
+            std::vector<size_t> iterationsv(threadCounts[i], 0);
             for (size_t tC = 0; tC < threadCounts[i]; tC++)
             {
-                threads.push_back(std::thread(singleThreadGenMinApprox<MAT, VEC>, std::ref(A), std::ref(B), std::ref(tolerance), std::ref(rhsWidth), std::ref(qrFrequency), std::ref(sigma), std::ref(alpha), std::ref(L), std::ref(U), std::ref(LUflops), std::ref(iterations[tC])));
+                threads.push_back(std::thread(singleThreadGenMinApprox<MAT, VEC>, std::ref(A), std::ref(B), std::ref(tolerance), std::ref(rhsWidth), std::ref(qrFrequency), std::ref(sigma), std::ref(alpha), std::ref(L), std::ref(U), std::ref(LUflops), std::ref(iterationsv[tC])));
             }
             for (size_t tC = 0; tC < threadCounts[i]; tC++)
             {
                 threads[tC].join();
             }
-            iterationstmp += vecAvg(iterations);
+            iterations += vecSum(iterationsv);
         }
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        double averageDuration = (double)duration.count() / (double)repetitions[i];
-        iterations = iterationstmp / repetitions[i];
-        flops = flopsCompGenMinMagIterationSum(iterations, N, rhsWidth, qrFrequency, L, U, Annz) + LUflops;
-        flops *= threadCounts[i];
-        gflops = flops / averageDuration;
+        flops = flopsCompGenMinMagIterationSum(iterations, N, rhsWidth, qrFrequency, L, U, Annz) + repetitions[i] * threadCounts[i] * LUflops;
+        gflops = flops / duration;
         outputFile << "\n"
                    << rhsWidth << "," << repetitions[i] << "," << iterations << "," << gflops << "," << threadCounts[i] << ",";
     }
