@@ -619,10 +619,10 @@ void flopsMatmulMT(const std::string filenameOut)
 
             for (size_t tC = 0; tC < lenThreadCounts; tC++)
             {
-                multiThreadedMatmul<BCRSMat>(identity, tC, rhsWidths[j], repetitions[i], gfIdentity);
-                multiThreadedMatmulNaive<BCRSMat>(identity, tC, rhsWidths[j], repetitions[i], gfIdentityNaive);
-                multiThreadedMatmul<BCRSMat>(laplacian, tC, rhsWidths[j], repetitions[i], gfLaplacian);
-                multiThreadedMatmulNaive<BCRSMat>(laplacian, tC, rhsWidths[j], repetitions[i], gfLaplacianNaive);
+                multiThreadedMatmul<BCRSMat>(identity, threadCounts[tC], rhsWidths[j], repetitions[i], gfIdentity);
+                multiThreadedMatmulNaive<BCRSMat>(identity, threadCounts[tC], rhsWidths[j], repetitions[i], gfIdentityNaive);
+                multiThreadedMatmul<BCRSMat>(laplacian, threadCounts[tC], rhsWidths[j], repetitions[i], gfLaplacian);
+                multiThreadedMatmulNaive<BCRSMat>(laplacian, threadCounts[tC], rhsWidths[j], repetitions[i], gfLaplacianNaive);
 
                 outputFile << "\n"
                            << Ns[i] << "," << rhsWidths[j] << "," << repetitions[i] << "," << threadCounts[tC] << "," << gfIdentity << "," << gfIdentityNaive << "," << gfLaplacian << "," << gfLaplacianNaive << ",";
