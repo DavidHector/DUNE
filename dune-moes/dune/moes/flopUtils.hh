@@ -21,7 +21,7 @@
 #include <dune/moes/Utils.hh>
 #include <dune/moes/arpack_geneo_wrapper.hh>
 
-double flopsCompGenMinMagIterationSum(size_t iterations, size_t N, size_t nev, size_t qrFrequency, size_t L, size_t U, size_t M)
+double flopsCompGenMinMagIterationSum(size_t iterations, size_t N, size_t nev, size_t qrFrequency, size_t L, size_t U, size_t MA, size_t MB)
 {
     double iterationsD = (double)iterations;
     double ND = (double)N;
@@ -29,12 +29,13 @@ double flopsCompGenMinMagIterationSum(size_t iterations, size_t N, size_t nev, s
     double qrFrequencyD = (double)qrFrequency;
     double LD = (double)L;
     double UD = (double)U;
-    double MD = (double)M;
+    double MAD = (double)MA;
+    double MBD = (double)MB;
 
-    double gSflops = iterationsD / qrFrequencyD * (2.0 * nevD * nevD * ND - nevD * nevD / 2.0 - nevD / 2.0);
-    double inverseFlops = 2.0 * nevD * LD + 2.0 * nevD * UD + 2.0 * nevD * ND - nevD;
-    double sparseMatmul = 2.0 * nevD * MD - nevD * ND;
-    double getEvsflops = 4.0 * nevD * MD + 2.0 * nevD * ND;
+    double gSflops = iterationsD / qrFrequencyD * (2.0 * nevD * nevD * ND - 0.5 * nevD * nevD - 0.5 * nevD);
+    double inverseFlops = 2.0 * nevD * LD + 2.0 * nevD * UD + 4.0 * nevD * ND - nevD; // backinsertion + scaling + normalization
+    double sparseMatmul = 2.0 * nevD * MBD - nevD * ND;                               // BQ
+    double getEvsflops = 2.0 * nevD * (MAD + MBD);                                    // Two sparse matrix multiplications + 2 vec-vec multiplications + divisions
     double total = gSflops + inverseFlops + sparseMatmul + getEvsflops;
     total *= iterationsD;
     return total;
@@ -90,8 +91,9 @@ void flopsSeqGenMinApproxFileRead(const std::string filenameA, const std::string
     const size_t lenRhsWidths = 6;
     size_t rhsWidths[lenRhsWidths] = {8, 16, 24, 32, 40, 48};
     size_t repetitions[lenRhsWidths] = {500, 100, 50, 10, 10, 1};
-    size_t iterations, sumIterations, L, U, Annz;
+    size_t iterations, sumIterations, L, U, Annz, Bnnz;
     Annz = A.nonzeroes();
+    Bnnz = B.nonzeroes();
     double gflops, flops;
     double LUflops;
 
@@ -113,7 +115,7 @@ void flopsSeqGenMinApproxFileRead(const std::string filenameA, const std::string
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
         double averageDuration = (double)duration.count() / (double)repetitions[i];
         iterations = sumIterations / repetitions[i];
-        flops = flopsCompGenMinMagIterationSum(sumIterations, N, rhsWidths[i], qrFrequency, L, U, Annz) + repetitions[i] * LUflops; // all flops I guess
+        flops = flopsCompGenMinMagIterationSum(sumIterations, N, rhsWidths[i], qrFrequency, L, U, Annz, Bnnz) + repetitions[i] * LUflops; // all flops I guess
         gflops = flops / duration.count();
         outputFile << "\n"
                    << rhsWidths[i] << "," << repetitions[i] << "," << iterations << "," << gflops << ",";
@@ -180,8 +182,9 @@ void flopsParGenMinApproxFileRead(const std::string filenameA, const std::string
     const size_t lenThreadCounts = 6;
     size_t threadCounts[lenThreadCounts] = {4, 8, 16, 32, 64, 128};
     size_t repetitions[lenThreadCounts] = {100, 50, 10, 10, 1, 1};
-    size_t iterations, L, U, Annz;
+    size_t iterations, L, U, Annz, Bnnz;
     Annz = A.nonzeroes();
+    Bnnz = B.nonzeroes();
     double gflops, flops;
     double LUflops;
 
@@ -209,7 +212,7 @@ void flopsParGenMinApproxFileRead(const std::string filenameA, const std::string
         }
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::nanoseconds>(stop - start);
-        flops = flopsCompGenMinMagIterationSum(iterations, N, rhsWidth, qrFrequency, L, U, Annz) + repetitions[i] * threadCounts[i] * LUflops;
+        flops = flopsCompGenMinMagIterationSum(iterations, N, rhsWidth, qrFrequency, L, U, Annz, Bnnz) + repetitions[i] * threadCounts[i] * LUflops;
         gflops = flops / duration.count();
         outputFile << "\n"
                    << rhsWidth << "," << repetitions[i] << "," << iterations << "," << gflops << "," << threadCounts[i] << ",";
@@ -232,9 +235,8 @@ void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance 
     size_t Ns[5] = {2500, 10000, 40000, 90000, 160000};
     const size_t lenrhsWidths = 7;
     size_t rhsWidths[lenrhsWidths] = {8, 16, 24, 32, 40, 56, 64};
-    const size_t lenRepetitions = 7;
-    size_t repetitions[lenRepetitions] = {100, 50, 30, 10, 10, 10, 10};
-    size_t L, U, iterations, Annz, sumIterations;
+    size_t repetitions[lenrhsWidths] = {100, 50, 30, 10, 10, 10, 10};
+    size_t L, U, iterations, Annz, Bnnz, sumIterations;
     double LUflops, flopsM, gflopsM;
 
     std::ofstream outFile;
@@ -251,6 +253,7 @@ void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance 
         ArpackMLGeneo::ArPackPlusPlus_Algorithms<MAT, VEC> arpack(A);
         moes<MAT, VEC> flopsMoes(A);
         Annz = A.nonzeroes();
+        Bnnz = B.nonzeroes();
         for (size_t irhs = 0; irhs < lenrhsWidths; irhs++)
         {
             std::cout << "rhsWidth = " << rhsWidths[irhs] << std::endl;
@@ -279,7 +282,7 @@ void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance 
             double averageDurationA = (double)durationAr.count() / (double)repetitions[irhs];
 
             // Possible mistake, I am always using the last iterations number
-            flopsM = flopsCompGenMinMagIterationSum(sumIterations, Ns[iN], rhsWidths[irhs], qrFrequency, L, U, Annz) + repetitions[irhs] * LUflops;
+            flopsM = flopsCompGenMinMagIterationSum(sumIterations, Ns[iN], rhsWidths[irhs], qrFrequency, L, U, Annz, Bnnz) + repetitions[irhs] * LUflops;
             gflopsM = flopsM / durationMoes.count();
             outFile << "\n"
                     << Ns[iN] << "," << rhsWidths[irhs] << "," << repetitions[irhs] << "," << gflopsM << "," << averageDurationM << "," << averageDurationA << ",";
