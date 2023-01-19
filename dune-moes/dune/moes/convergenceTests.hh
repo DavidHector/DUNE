@@ -22,20 +22,17 @@
 #include <dune/moes/arpack_geneo_wrapper.hh>
 
 template <typename MAT, typename VEC>
-void csnGenMinApprox(const std::string Afile, const std::string Bfile, const std::string filenameOut, const double tolerance = 1e-8, const double sigma = 0.01, const double alpha = 0.001, const size_t qrFrequency = 1)
+void csnGenMinApprox(const std::string Afile, const std::string Bfile, const std::string filenameOut, const double tolerance = 1e-8, const double sigma = 0.01, const double alpha = 0.1, const size_t qrFrequency = 1)
 {
     MAT A, B;
     Dune::loadMatrixMarket(A, Afile);
     Dune::loadMatrixMarket(B, Bfile);
-    const size_t lenIterations = 11;
-    const size_t rhsWidth = 40;
-    size_t iterations[lenIterations] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024};
+    const size_t lenIterations = 14;
+    const size_t lenrhsWidths = 5;
+    const size_t rhsWidths[lenrhsWidths] = {8, 16, 32, 40, 64};
+    size_t iterations[lenIterations] = {1, 2, 4, 8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096, 8192};
     VEC vec(A.N());
     vec = 0.0;
-    std::vector<VEC> evs(rhsWidth + 8, vec);
-    std::vector<VEC> arpacksevs(rhsWidth, vec);
-    std::vector<double> lambdas(rhsWidth + 8, 0.0);
-    std::vector<double> arlambdas(rhsWidth, 0.0);
     double LUflops, csn;
     size_t L, U;
     moes<MAT, VEC> csnMoes(A);
@@ -44,16 +41,32 @@ void csnGenMinApprox(const std::string Afile, const std::string Bfile, const std
     setupIdentity(identity, A.N());
     Aslightshift.axpy(alpha, identity);
     ArpackMLGeneo::ArPackPlusPlus_Algorithms<MAT, VEC> arpack(Aslightshift);
-    arpack.computeGenNonSymShiftInvertMinMagnitude(B, tolerance, arpacksevs, arlambdas, sigma);
+
     std::ofstream outputFile;
     outputFile.open(filenameOut);
     outputFile << "rhsWidth, iterations, columnSumNorm, arpackTolerance, ";
-    for (size_t i = 0; i < lenIterations; i++)
+    for (size_t irhs = 0; irhs < lenrhsWidths; irhs++)
     {
-        csnMoes.computeGenMinMagnitudeApproxIterations(B, evs, lambdas, rhsWidth + 8, qrFrequency, sigma, alpha, L, U, LUflops, iterations[i]);
-        csn = csnMoes.columnSumNorm(evs, arpacksevs);
-        outputFile << "\n"
-                   << rhsWidth << "," << iterations[i] << "," << csn << "," << tolerance << ",";
+        std::vector<VEC> evs(rhsWidths[irhs] + 8, vec);
+        std::vector<VEC> arpacksevs(rhsWidths[irhs], vec);
+        std::vector<double> lambdas(rhsWidths[irhs] + 8, 0.0);
+        std::vector<double> arlambdas(rhsWidths[irhs], 0.0);
+        arpack.computeGenNonSymShiftInvertMinMagnitude(B, tolerance, arpacksevs, arlambdas, sigma);
+        /*
+        std::cout << "rhsWidth = " << rhsWidths[irhs] << std::endl;
+        std::cout << "norms for arpacks evs: " << std::endl;
+        for (size_t i = 0; i < arpacksevs.size(); i++)
+        {
+            std::cout << printNormVec(arpacksevs[i]) << std::endl;
+        }
+        */
+        for (size_t i = 0; i < lenIterations; i++)
+        {
+            csnMoes.computeGenMinMagnitudeApproxIterations(B, evs, lambdas, rhsWidths[irhs] + 8, qrFrequency, sigma, alpha, L, U, LUflops, iterations[i]);
+            csn = csnMoes.columnSumNorm(evs, arpacksevs);
+            outputFile << "\n"
+                       << rhsWidths[irhs] << "," << iterations[i] << "," << csn << "," << tolerance << ",";
+        }
     }
     outputFile.close();
 }

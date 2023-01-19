@@ -229,7 +229,7 @@ void flopsSeqStdMaxMag() {}
 void flopsParStdMaxMag() {}
 
 template <typename MAT, typename VEC>
-void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = 0.01, const size_t qrFrequency = 5)
+void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = 0.01, const size_t qrFrequency = 1)
 {
     const size_t lenNs = 4;
     size_t Ns[lenNs] = {2500, 10000, 40000, 90000};
