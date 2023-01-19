@@ -21,7 +21,7 @@
 #include <dune/moes/Utils.hh>
 #include <dune/moes/arpack_geneo_wrapper.hh>
 
-double flopsCompGenMinMagIterationSum(size_t iterations, size_t N, size_t nev, size_t qrFrequency, size_t L, size_t U, size_t MA, size_t MB)
+double flopsCompGenMinMagIterationSum(const size_t &iterations, const size_t &N, const size_t &nev, const size_t &qrFrequency, const size_t &L, const size_t &U, const size_t &MA, const size_t &MB)
 {
     double iterationsD = (double)iterations;
     double ND = (double)N;
@@ -32,7 +32,7 @@ double flopsCompGenMinMagIterationSum(size_t iterations, size_t N, size_t nev, s
     double MAD = (double)MA;
     double MBD = (double)MB;
 
-    double gSflops = iterationsD / qrFrequencyD * (2.0 * nevD * nevD * ND - 0.5 * nevD * nevD - 0.5 * nevD);
+    double gSflops = 1 / qrFrequencyD * (2.0 * nevD * nevD * ND - 0.5 * nevD * nevD - 0.5 * nevD);
     double inverseFlops = 2.0 * nevD * LD + 2.0 * nevD * UD + 4.0 * nevD * ND - nevD; // backinsertion + scaling + normalization
     double sparseMatmul = 2.0 * nevD * MBD - nevD * ND;                               // BQ
     double getEvsflops = 2.0 * nevD * (MAD + MBD);                                    // Two sparse matrix multiplications + 2 vec-vec multiplications + divisions
@@ -231,8 +231,8 @@ void flopsParStdMaxMag() {}
 template <typename MAT, typename VEC>
 void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = 0.01, const size_t qrFrequency = 5)
 {
-    const size_t lenNs = 5;
-    size_t Ns[5] = {2500, 10000, 40000, 90000, 160000};
+    const size_t lenNs = 4;
+    size_t Ns[lenNs] = {2500, 10000, 40000, 90000};
     const size_t lenrhsWidths = 7;
     size_t rhsWidths[lenrhsWidths] = {8, 16, 24, 32, 40, 56, 64};
     size_t repetitions[lenrhsWidths] = {100, 50, 30, 10, 10, 10, 10};
