@@ -292,6 +292,81 @@ void flopsSeqGenMinMagLap(const std::string filenameOut, const double tolerance 
     outFile.close();
 }
 
+template <typename MAT, typename VEC>
+void singleThreadGenMin(MAT &A, MAT &B, const double &epsilon, const int &nev, const int &qrFrequency, const double &sigma, size_t &L, size_t &U, double &LUflops, size_t &iterations)
+{
+    moes<MAT, VEC> moesST(A);
+    size_t N = A.N();
+    VEC vec(N);
+    vec = 0.0;
+    std::vector<VEC> eigenvecs(nev, vec);
+    std::vector<double> eigenvals(nev, 0.0);
+    moesST.computeGenMinMagnitude(B, epsilon, eigenvecs, eigenvals, nev, qrFrequency, sigma, L, U, LUflops, iterations);
+}
+
+//TODO: Parallel measurement
+template <typename MAT, typename VEC>
+void flopsParGenMinMagLap(const std::string filenameOut, const double tolerance = 1e-8, const double sigma = 0.01, const size_t qrFrequency = 1)
+{
+    const size_t lenNs = 4;
+    size_t Ns[lenNs] = {2500, 10000, 40000, 90000};
+    const size_t lenrhsWidths = 7;
+    size_t rhsWidths[lenrhsWidths] = {8, 16, 24, 32, 40, 56, 64};
+
+    const size_t lenThreadCounts = 6;
+    size_t threadCounts[lenThreadCounts] = {4, 8, 16, 32, 64, 128};
+    size_t repetitions[lenThreadCounts] = {10, 5, 3, 1, 1, 1};
+    size_t L, U, iterations, Annz, Bnnz, sumIterations;
+    double LUflops, flopsM, gflopsM;
+
+    std::ofstream outFile;
+    outFile.open(filenameOut);
+    outFile << "N, rhsWidth, threadNumber, repetitions, gflopsmoes[GFLOPS],";
+    for (size_t iN = 0; iN < lenNs; iN++)
+    {
+        std::cout << "N = " << Ns[iN] << std::endl;
+        MAT A, B;
+        setupLaplacian(A, std::sqrt(Ns[iN]));
+        setupIdentity(B, Ns[iN]);
+        Annz = A.nonzeroes();
+        Bnnz = B.nonzeroes();
+        for (size_t irhs = 0; irhs < lenrhsWidths; irhs++)
+        {
+            std::cout << "rhsWidth = " << rhsWidths[irhs] << std::endl;
+            sumIterations = 0;
+            for (size_t iT = 0; iT < lenThreadCounts; iT++)
+            {
+                auto startMoes = std::chrono::high_resolution_clock::now();
+                for (size_t reps = 0; reps < repetitions[iT]; reps++)
+                {
+                    std::vector<std::thread> threads;
+                    std::vector<size_t> iterationsv(threadCounts[iT], 0);
+                    for (size_t iTC = 0; iTC < threadCounts[iT]; iTC++)
+                    {
+                        threads.push_back(std::thread(singleThreadGenMin<MAT, VEC>, std::ref(A), std::ref(B), std::ref(tolerance), std::ref(rhsWidths[irhs]), std::ref(qrFrequency), std::ref(sigma), std::ref(L), std::ref(U), std::ref(LUflops), std::ref(iterationsv[iTC])));
+                    }
+                    for (size_t iTC = 0; iTC < threadCounts[iT]; iTC++)
+                    {
+                        threads[iTC].join();
+                    }
+                    sumIterations += vecSum(iterationsv);
+                }
+                auto stopMoes = std::chrono::high_resolution_clock::now();
+                auto durationMoes = std::chrono::duration_cast<std::chrono::nanoseconds>(stopMoes - startMoes);
+                double averageDurationM = (double)durationMoes.count() / (double)repetitions[iT];
+
+                // Possible mistake, I am always using the last iterations number
+                flopsM = flopsCompGenMinMagIterationSum(sumIterations, Ns[iN], rhsWidths[irhs], qrFrequency, L, U, Annz, Bnnz) + repetitions[iT] * LUflops;
+                gflopsM = flopsM / durationMoes.count();
+                outFile << "\n"
+                        << Ns[iN] << "," << rhsWidths[irhs] << "," << threadCounts[iT] << "," << repetitions[iT] << "," << gflopsM << "," << averageDurationM << ",";
+            }
+        }
+    }
+
+    outFile.close();
+}
+
 double flopsGS(const size_t &N, const size_t &W)
 {
     return 2.0 * W * W * N - 0.5 * W * W - 0.5 * W;

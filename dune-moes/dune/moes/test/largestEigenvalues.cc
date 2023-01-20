@@ -104,9 +104,9 @@ int main(int argc, char const *argv[])
     // How to produce the right hand-side?
     VEC vec(N); //for template
     vec = 0.0;  //just copying from multilevel_geneo_preconditioner.hh
-    std::vector<VEC> eigenvecs(EVNumber, vec);
+    std::vector<VEC> eigenvecs(EVNumber + 8, vec);
     std::vector<VEC> moeseigenvecs(EVNumber + 8, vec);
-    std::vector<double> eigenvals(EVNumber, 0.0);
+    std::vector<double> eigenvals(EVNumber + 8, 0.0);
     std::vector<double> moeseigenvals(EVNumber + 8, 0.0);
     std::cout << "init of arpack was successfull" << std::endl
               << "starting arpack computeGenSymShiftInvertMinMagnitude: " << std::endl;
@@ -144,15 +144,15 @@ int main(int argc, char const *argv[])
     //arpack.computeGenSymShiftInvertMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.05);
     arpack.computeGenNonSymShiftInvertMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.05);
     // arpack.computeStdNonSymMinMagnitude(neumann, tolerance, eigenvecs, eigenvals, -0.5);
-    std::vector<VEC> redeigenvecs(eigenvecs.size() / 2, vec);
+    std::vector<VEC> redeigenvecs(EVNumber, vec);
     for (size_t i = 0; i < redeigenvecs.size(); i++)
     {
-        redeigenvecs[i] = eigenvecs[i + 1];
+        redeigenvecs[i] = eigenvecs[i];
     }
-    std::vector<VEC> redmoeseigenvecs(moeseigenvecs.size() / 2, vec);
+    std::vector<VEC> redmoeseigenvecs(moeseigenvecs.size(), vec);
     for (size_t i = 0; i < redmoeseigenvecs.size(); i++)
     {
-        redmoeseigenvecs[i] = moeseigenvecs[i + 1];
+        redmoeseigenvecs[i] = moeseigenvecs[i];
     }
     // double csN = moes.columnSumNorm(redmoeseigenvecs, redeigenvecs);
     // double csN = moes.columnSumNorm(moeseigenvecs, eigenvecs);
@@ -164,8 +164,8 @@ int main(int argc, char const *argv[])
     }
     */
 
-    double csN = moes.columnSumNorm(moeseigenvecs, eigenvecs);
-    double csNAlt = moes.columnSumNormAlt(moeseigenvecs, eigenvecs);
+    double csN = moes.columnSumNorm(moeseigenvecs, redeigenvecs);
+    double csNAlt = moes.columnSumNormAlt(moeseigenvecs, redeigenvecs);
     std::cout << std::endl
               << "The smallest " << EVNumber << " moes Eigenvalues are: " << std::endl;
     for (size_t i = 0; i < EVNumber; i++)
