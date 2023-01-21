@@ -321,7 +321,7 @@ void flopsParGenMinMagLap(const std::string filenameOut, const double tolerance 
 
     std::ofstream outFile;
     outFile.open(filenameOut);
-    outFile << "N, rhsWidth, threadNumber, repetitions, gflopsmoes[GFLOPS],";
+    outFile << "N, rhsWidth, threadNumber, repetitions, gflopsmoes[GFLOPS], averageDurationMoes[ns]";
     for (size_t iN = 0; iN < lenNs; iN++)
     {
         std::cout << "N = " << Ns[iN] << std::endl;
@@ -333,9 +333,10 @@ void flopsParGenMinMagLap(const std::string filenameOut, const double tolerance 
         for (size_t irhs = 0; irhs < lenrhsWidths; irhs++)
         {
             std::cout << "rhsWidth = " << rhsWidths[irhs] << std::endl;
-            sumIterations = 0;
+
             for (size_t iT = 0; iT < lenThreadCounts; iT++)
             {
+                sumIterations = 0;
                 auto startMoes = std::chrono::high_resolution_clock::now();
                 for (size_t reps = 0; reps < repetitions[iT]; reps++)
                 {
@@ -356,7 +357,7 @@ void flopsParGenMinMagLap(const std::string filenameOut, const double tolerance 
                 double averageDurationM = (double)durationMoes.count() / (double)repetitions[iT];
 
                 // Possible mistake, I am always using the last iterations number
-                flopsM = flopsCompGenMinMagIterationSum(sumIterations, Ns[iN], rhsWidths[irhs], qrFrequency, L, U, Annz, Bnnz) + repetitions[iT] * LUflops;
+                flopsM = flopsCompGenMinMagIterationSum(sumIterations, Ns[iN], rhsWidths[irhs], qrFrequency, L, U, Annz, Bnnz) + repetitions[iT] * threadCounts[iT] * LUflops;
                 gflopsM = flopsM / durationMoes.count();
                 outFile << "\n"
                         << Ns[iN] << "," << rhsWidths[irhs] << "," << threadCounts[iT] << "," << repetitions[iT] << "," << gflopsM << "," << averageDurationM << ",";
